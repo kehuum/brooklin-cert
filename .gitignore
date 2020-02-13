@@ -131,3 +131,6 @@ dmypy.json
 # IntelliJ project files
 *.iml
 *.idea
+
+# macOS folder attributes files
+*.DS_Store
