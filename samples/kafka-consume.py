@@ -32,7 +32,7 @@ def main():
         + ssl_keyfile:
             - Client private key. Can be the same pem file specified for ssl_certfile
     """
-    consumer = KafkaConsumer(topic='test-kafka-push-job-partition-key',
+    consumer = KafkaConsumer('test-kafka-push-job-partition-key',  # topic
                              group_id='some-group',
                              auto_offset_reset='earliest',
                              bootstrap_servers=['ltx1-kafka-kafka-dd-local-vip.stg.linkedin.com:16637'],
