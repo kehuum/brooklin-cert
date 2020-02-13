@@ -4,7 +4,10 @@ This repository is intended for hosting Brooklin test automation code.
 ### Setup instructions
 1. Install Python 3.6
 
-    - For macOS, you can download the latest 3.6.x installer from the [Python releases page](https://www.python.org/downloads/mac-osx/).
+    - For macOS, you can download the latest 3.6.x installer from the [Python releases page](https://www.python.org/downloads/mac-osx/). It typically installs to the following location on disk:
+        ```shell script
+        /Library/Frameworks/Python.framework/Versions/3.6/bin/python3
+        ```
     - For Linux, you can use yum. Here's how you can check if you already have it.
         ```shell script
         yum list installed | grep LNKD-python
@@ -20,7 +23,11 @@ This repository is intended for hosting Brooklin test automation code.
 
     Make sure to use the same Python you installed in step 1.
     ```shell script
+    # on Linux
     sudo /export/apps/python/3.6.9/bin/python3 -m pip install pipenv
+    
+    # on macOS
+    sudo /Library/Frameworks/Python.framework/Versions/3.6/bin/python3 -m pip install pipenv
     ```
 
 3. Clone the repo 
@@ -33,4 +40,3 @@ This repository is intended for hosting Brooklin test automation code.
    - Import Project
    - Create project from existing sources
    - Open any of the Python files and click IntelliJ's tips regarding using Pipenv and installing dependencies
-  
