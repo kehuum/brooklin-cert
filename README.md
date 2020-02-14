@@ -40,3 +40,12 @@ This repository is intended for hosting Brooklin test automation code.
    - Import Project
    - Create project from existing sources
    - Open any of the Python files and click IntelliJ's tips regarding using Pipenv and installing dependencies
+   
+### Packaging scripts
+
+To package all the scripts into a Python source tar.gz, you can run:
+```shell script
+cd brooklin-certification
+pipenv shell
+python setup.py sdist
+```

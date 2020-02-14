@@ -9,6 +9,8 @@ verify_ssl = true
 kafka-python = "*"
 requests = "*"
 tqdm = "*"
+setuptools = "*"
+wheel = "*"
 
 [requires]
 python_version = "3.6"
