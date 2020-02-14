@@ -3,7 +3,6 @@
 a given time frame."""
 
 import argparse
-import json
 import logging
 import re
 import sys
@@ -30,48 +29,29 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description='Get counts of all BMM topics processed by Kafka Audit V2')
     parser.add_argument('--debug', action='store_true')
-
-    # Let one either run a new audit count check, or just specify an earlier output file containing tier counts per
-    # topic to parse
-    subcommands = parser.add_subparsers(help='Help for supported commands')
-
-    processfilesubcommand = subcommands.add_parser('printfile', help='Print tabular summary from JSON output file '
-                                                                     'from a previous run')
-    processfilesubcommand.add_argument('--parsejsonfile', required=True, help='Path to an earlier output JSON file')
-    processfilesubcommand.set_defaults(cmd='printfile')
-
-    mainsubcommand = subcommands.add_parser('run',
-                                            help='Run a fresh new audit which queries counts from Kafka-audit. Save '
-                                                 'the output as JSON to a file for later use')
-    mainsubcommand.set_defaults(cmd='run')
-    grp = mainsubcommand.add_argument_group()
-
-    grp.add_argument('--topics', type=csv, help='[Optional] CSV of topics')
-    grp.add_argument('--output', help='[Optional] path to store JSON topic counts')
-    grp.add_argument('--topicsfile', help='[Optional] path to input topics file, with a single topic on each line')
-
-    grp1 = grp.add_mutually_exclusive_group()
-    grp1.add_argument('--startms', '-s', type=int, help='Start time in milliseconds since epoch. Optional if '
-                                                        '--durationms is specified')
-
-    grp2 = grp.add_mutually_exclusive_group(required=True)
-    grp2.add_argument('--endms', '-e', type=int, help='End time in milliseconds since epoch. --startms is required')
+    parser.add_argument('--topics', type=csv, help='[Optional] CSV of topics')
+    parser.add_argument('--output', help='[Optional] path to store logs and results')
+    parser.add_argument('--topicsfile', help='[Optional] path to input topics file, with a single topic on each line')
+    parser.add_argument('--startms', '-s', type=int,
+                        help='Start time in milliseconds since epoch. --endms is required', required=True)
+    parser.add_argument('--endms', '-e', type=int, help='End time in milliseconds since epoch. --startms is required',
+                        required=True)
+    parser.add_argument('--threshold', '-t', type=int, help='Percentage threshold at which to fail audit', default=3)
 
     p = parser.parse_args()
 
     if not p.debug:
         log.setLevel(logging.INFO)
 
-    if p.cmd == 'run':
-        if p.endms and not p.startms:
-            raise argparse.ArgumentError('--endms requires --startms/--starthoursago')
+    if p.endms and not p.startms:
+        raise argparse.ArgumentError('--endms requires --startms/--starthoursago')
 
-        if p.topicsfile:
-            file_topics = get_topic_list_from_file(p.topicsfile)
-            if p.topics:
-                p.topics = p.topics + file_topics
-            else:
-                p.topics = file_topics
+    if p.topicsfile:
+        file_topics = get_topic_list_from_file(p.topicsfile)
+        if p.topics:
+            p.topics = p.topics + file_topics
+        else:
+            p.topics = file_topics
 
     return p
 
@@ -137,9 +117,9 @@ def print_summary_table(topic_counts):
     format_str = "{0: <50} {1: >16} {2: >16} {3: >16} {4: >3.2f}%"
     header = format_str.replace(': >3.2f', '').format('Topic', 'kafka-lva1-cert', 'kafka-lor1-cert', 'CountDifference',
                                                       'Complete')
-    print('\n\n')
+    print('\n')
     print(topic_counts)
-    print('\n\n')
+    print('\n')
     print(header)
     print("=" * len(header))
     for topic in topic_counts:
@@ -164,31 +144,65 @@ def print_summary_table(topic_counts):
     print(footer)
 
 
+def aggregate_and_verify_topic_counts(topic_counts, threshold):
+    total_prod_lva1 = 0
+    total_prod_lor1 = 0
+    lva1_topic_missing = 0
+    lor1_topic_missing = 0
+
+    for topic in topic_counts:
+        lva1count = 0
+        lor1count = 0
+        lva1_topic_missing = 0
+        lor1_topic_missing = 0
+
+        try:
+            lva1count = topic_counts[topic]['totalsPerTier']['kafka-lva1-cert']
+        except:
+            log.debug('Counts missing for kafka-lva1-cert tier for topic: {0}'.format(topic))
+            lva1_topic_missing = lva1_topic_missing + 1
+
+        try:
+            lor1count = topic_counts[topic]['totalsPerTier']['kafka-lor1-cert']
+        except:
+            log.debug('Counts missing for kafka-lor1-cert tier for topic: {0}'.format(topic))
+            lor1_topic_missing = lor1_topic_missing + 1
+
+        total_prod_lva1 += lva1count
+        total_prod_lor1 += lor1count
+
+    value = float(total_prod_lor1 / float(total_prod_lva1 or 1) * 100)
+    print('total_prod_lor1: %s, total_prod_lva1: %s, ratio: %s %%' % (total_prod_lor1, total_prod_lva1, value))
+    if lva1_topic_missing or lor1_topic_missing:
+        log.info('Topic missing count: lva1: %s, lor1: %s' % (lva1_topic_missing, lor1_topic_missing))
+    return float(100 - threshold) <= value < float(100 + threshold)
+
+
 def main():
     p = parse_args()
-    if p.cmd == 'run':
-        log.info('Checking audit FROM "{0}" TO "{1}"'.format(time.ctime(p.startms / 1000), time.ctime(p.endms / 1000)))
-        if not p.topics:
-            topics = get_all_topics()
-            topic_counts_map = find_cert_tier_counts(topics, p.startms, p.endms)
-        else:
-            topic_counts_map = find_cert_tier_counts(p.topics, p.startms, p.endms)
 
-        if p.output:
-            log.info('Writing raw topic counts as JSON into: "{0}"'.format(p.output))
-            with open(p.output, 'w') as f:
-                f.write(json.dumps(topic_counts_map, indent=2))
+    if p.output:
+        sys.stdout = open(p.output, 'w')
+
+    log.info('Checking audit FROM "{0}" TO "{1}"'.format(time.ctime(p.startms / 1000), time.ctime(p.endms / 1000)))
+    if not p.topics:
+        topics = get_all_topics()
+        topic_counts_map = find_cert_tier_counts(topics, p.startms, p.endms)
     else:
-        try:
-            topic_counts_map = json.load(open(p.parsejsonfile))
-        except:
-            log.exception('Error parsing json file: "{0}"'.format(p.parsejsonfile))
-            raise
+        topic_counts_map = find_cert_tier_counts(p.topics, p.startms, p.endms)
 
     print_summary_table(topic_counts_map)
-    if p.cmd == 'run':
-        print("\nCounts were from beginTimestamp={0}({1}) to endTimestamp={2}({3})".format(
+    print('\nCounts were from beginTimestamp={0}({1}) to endTimestamp={2}({3})'.format(
             p.startms, time.ctime(p.startms / 1000), p.endms, time.ctime(p.endms / 1000)))
+    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, p.threshold)
+    print('Aggregate audit counting pass threshold {}, passed: {}'.format(p.threshold, is_pass))
+
+    sys.stdout = sys.__stdout__
+
+    if is_pass:
+        sys.exit(0)
+    else:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
