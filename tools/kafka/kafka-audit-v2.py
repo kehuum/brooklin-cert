@@ -1,4 +1,4 @@
-#! python
+#!/usr/bin/env python3
 """This is a script which hits the Kafka Audit V2 endpoint to obtain completeness counts for a list of topics within
 a given time frame."""
 
@@ -25,7 +25,7 @@ def parse_args():
     def csv(topics):
         if re.match('^[-_.A-z0-9]+(,[-_A-z0-9]+)*,?$', topics):
             return [i for i in topics.split(',') if i]
-        raise argparse.ArgumentError('invalid list topics')
+        raise argparse.ArgumentError('invalid list of topics')
 
     parser = argparse.ArgumentParser(description='Get counts of all BMM topics processed by Kafka Audit V2')
     parser.add_argument('--debug', action='store_true')
