@@ -12,13 +12,16 @@ log = logging.getLogger()
 
 BASE_TOOL_COMMAND = 'brooklin-tool datastream'
 
+LIST_COMMAND = 'list'
+CREATE_COMMAND = 'create'
+DELETE_COMMAND = 'delete'
+STOP_COMMAND = 'stop'
+PAUSE_COMMAND = 'pause'
+RESUME_COMMAND = 'resume'
+RESTART_COMMAND = 'restart'
+
 
 def parse_args():
-    def csv(principals):
-        if re.match('^[-_.A-z0-9]+(,[-_A-z0-9]+)*,?$', principals):
-            return [i for i in principals.split(',') if i]
-        raise argparse.ArgumentError('invalid list of principals')
-
     parser = argparse.ArgumentParser(description='Perform all datastream CRUD operations using brooklin-tool')
 
     # Create a common parser which can be shared by all sub-commands
@@ -38,13 +41,42 @@ def parse_args():
     subcommands.dest = 'cmd'
     subcommands.required = True
 
-    # All the arguments for the list sub-command
-    list_command = subcommands.add_parser('list', help='List all datastreams in a given Brooklin cluster',
-                                          parents=[common_parser])
-    list_command.set_defaults(cmd='list')
+    def add_subparser(name, help):
+        return subcommands.add_parser(name, help=help, parents=[common_parser])
 
+    list_command_parser(add_subparser)
+    create_command_parser(add_subparser)
+    delete_command_parser(add_subparser)
+    stop_command_parser(add_subparser)
+    pause_command_parser(add_subparser)
+    resume_command_parser(add_subparser)
+    restart_command_parser(add_subparser)
+
+    args = parser.parse_args()
+
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+
+    if args.cmd == CREATE_COMMAND:
+        # Destination fabric is picked up from the fabric if not set
+        if not args.destinationfabric:
+            args.destinationfabric = args.fabric
+        # Validate that at least one principal is passed
+        if not args.users and not args.groups and not args.applications:
+            parser.error('At least one of --users/--groups/--applications just be specified')
+
+    return args
+
+
+def list_command_parser(add_parser):
+    # All the arguments for the list sub-command
+    list_command = add_parser(LIST_COMMAND, help='List all datastreams in a given Brooklin cluster')
+    list_command.set_defaults(cmd=LIST_COMMAND)
+
+
+def create_command_parser(add_parser):
     # All the arguments for the create sub-command
-    create_command = subcommands.add_parser('create', help='Create a datastream', parents=[common_parser])
+    create_command = add_parser(CREATE_COMMAND, help='Create a datastream')
 
     # Add all the required arguments for the create sub-command
     create_command_group = create_command.add_argument_group('required arguments')
@@ -90,10 +122,12 @@ def parse_args():
     create_command_optional_group.add_argument('--metadata', action='append',
                                                help='Metadata property overrides defined as key value pairs separated '
                                                     'by ":". This can be repeated to specify multiple properties')
-    create_command.set_defaults(cmd='create')
+    create_command.set_defaults(cmd=CREATE_COMMAND)
 
+
+def delete_command_parser(add_parser):
     # All the arguments for the delete sub-command
-    delete_command = subcommands.add_parser('delete', help='Delete a datastream', parents=[common_parser])
+    delete_command = add_parser(DELETE_COMMAND, help='Delete a datastream')
 
     # Add all the required arguments for the delete sub-command
     delete_command_group = delete_command.add_argument_group('required arguments')
@@ -108,37 +142,104 @@ def parse_args():
     delete_command_optional_group = delete_command.add_argument_group('optional arguments')
     delete_command_optional_group.add_argument('--force', action='store_true',
                                                help='Skip the interactive prompt to perform the force delete')
-    delete_command.set_defaults(cmd='delete')
-
-    args = parser.parse_args()
-
-    if args.debug:
-        log.setLevel(logging.DEBUG)
-
-    if args.cmd == 'create':
-        # Destination fabric is picked up from the fabric if not set
-        if not args.destinationfabric:
-            args.destinationfabric = args.fabric
-        # Validate that at least one principal is passed
-        if not args.users and not args.groups and not args.applications:
-            parser.error('At least one of --users/--groups/--applications just be specified')
-
-    return args
+    delete_command.set_defaults(cmd=DELETE_COMMAND)
 
 
-def join_principals(principal_list):
-    return ','.join(principal_list)
+def stop_command_parser(add_parser):
+    # All the arguments for the stop sub-command
+    stop_command = add_parser(STOP_COMMAND, help='Stop a datastream')
+
+    # Add all the required arguments for the stop sub-command
+    stop_command_group = stop_command.add_argument_group('required arguments')
+    stop_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
+    stop_command_group.add_argument('--cert', '-c', required=True,
+                                    help='Certificate to use to for 2FA with brooklin-tool')
+    stop_command_group.add_argument('--message', '-m', required=True, help='Reason for stopping the stream')
+
+    # Add all the optional arguments for the stop sub-command
+    stop_command_optional_group = stop_command.add_argument_group('optional arguments')
+    stop_command_optional_group.add_argument('--force', action='store_true',
+                                             help='Skip the interactive prompt to perform the force stop')
+    stop_command.set_defaults(cmd=STOP_COMMAND)
+
+
+def pause_command_parser(add_parser):
+    # All the arguments for the pause sub-command
+    pause_command = add_parser(PAUSE_COMMAND, help='Pause a datastream')
+
+    # Add all the required arguments for the pause sub-command
+    pause_command_group = pause_command.add_argument_group('required arguments')
+    pause_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
+    pause_command_group.add_argument('--cert', '-c', required=True,
+                                     help='Certificate to use to for 2FA with brooklin-tool')
+    pause_command_group.add_argument('--message', '-m', required=True, help='Reason for pausing the stream')
+
+    # Add all the optional arguments for the pause sub-command
+    pause_command_optional_group = pause_command.add_argument_group('optional arguments')
+    pause_command_optional_group.add_argument('--force', action='store_true',
+                                              help='Skip the interactive prompt to perform the force pause')
+    pause_command_optional_group.add_argument('--topic', required=False, help='Topic to pause')
+    pause_command_optional_group.add_argument('--partitions', required=False, type=csv,
+                                              help='Comma separated list of partitions to pause or * for all'
+                                                   ' partitions')
+    pause_command.set_defaults(cmd=PAUSE_COMMAND)
+
+
+def resume_command_parser(add_parser):
+    # All the arguments for the resume sub-command
+    resume_command = add_parser(RESUME_COMMAND, help='Resume a datastream')
+
+    # Add all the required arguments for the resume sub-command
+    resume_command_group = resume_command.add_argument_group('required arguments')
+    resume_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
+    resume_command_group.add_argument('--cert', '-c', required=True,
+                                      help='Certificate to use to for 2FA with brooklin-tool')
+
+    # Add all the optional arguments for the resume sub-command
+    resume_command_optional_group = resume_command.add_argument_group('optional arguments')
+    resume_command_optional_group.add_argument('--topic', required=False, help='Topic to resume')
+    resume_command_optional_group.add_argument('--partitions', required=False, type=csv,
+                                               help='Comma separated list of partitions to resume or * for all'
+                                                    ' partitions')
+    resume_command.set_defaults(cmd=RESUME_COMMAND)
+
+
+def restart_command_parser(add_parser):
+    # All the arguments for the restart sub-command
+    restart_command = add_parser(RESTART_COMMAND, help='Restart a datastream (stop + start)')
+
+    # Add all the required arguments for the restart sub-command
+    restart_command_group = restart_command.add_argument_group('required arguments')
+    restart_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
+    restart_command_group.add_argument('--cert', '-c', required=True,
+                                       help='Certificate to use to for 2FA with brooklin-tool')
+
+    # Add all the optional arguments for the restart sub-command
+    restart_command_optional_group = restart_command.add_argument_group('optional arguments')
+    restart_command_optional_group.add_argument('--wait', type=int, required=False,
+                                                help='Time in seconds to wait between stop and resume')
+    restart_command.set_defaults(cmd=RESTART_COMMAND)
+
+
+def csv(tokens):
+    if re.match('^[-_.A-z0-9]+(,[-_A-z0-9]+)*,?$', tokens):
+        return [i for i in tokens.split(',') if i]
+    raise argparse.ArgumentError('invalid list of tokens')
+
+
+def join_csv_values(values_list):
+    return ','.join(values_list)
 
 
 def build_datastream_list_command(args):
-    list_command = f'{BASE_TOOL_COMMAND} list ' \
+    list_command = f'{BASE_TOOL_COMMAND} {LIST_COMMAND} ' \
                    f'-f {args.fabric} ' \
                    f'-t {args.tag}'
     return list_command
 
 
 def build_datastream_create_command(args):
-    create_command = f'{BASE_TOOL_COMMAND} create mirrormaker ' \
+    create_command = f'{BASE_TOOL_COMMAND} {CREATE_COMMAND} mirrormaker ' \
                      f'-f {args.fabric} ' \
                      f'--tag {args.tag} ' \
                      f'-n {args.name} ' \
@@ -153,11 +254,11 @@ def build_datastream_create_command(args):
 
     # The remaining are optional, so must check if they exist
     if args.users:
-        create_command += f'--users {join_principals(args.users)} '
+        create_command += f'--users {join_csv_values(args.users)} '
     if args.groups:
-        create_command += f'--groups {join_principals(args.groups)} '
+        create_command += f'--groups {join_csv_values(args.groups)} '
     if args.applications:
-        create_command += f'--applications {join_principals(args.applications)} '
+        create_command += f'--applications {join_csv_values(args.applications)} '
     if args.offsetreset:
         create_command += f'--offset-reset {args.offsetreset} '
     if args.groupid:
@@ -177,7 +278,7 @@ def build_datastream_create_command(args):
 
 
 def build_datastream_delete_command(args):
-    delete_command = f'{BASE_TOOL_COMMAND} delete ' \
+    delete_command = f'{BASE_TOOL_COMMAND} {DELETE_COMMAND} ' \
                      f'-f {args.fabric} ' \
                      f'--tags {args.tag} ' \
                      f'-n {args.name} ' \
@@ -189,6 +290,70 @@ def build_datastream_delete_command(args):
         delete_command += f'--force'
 
     return delete_command
+
+
+def build_datastream_stop_command(args):
+    stop_command = f'{BASE_TOOL_COMMAND} {STOP_COMMAND} ' \
+                   f'-f {args.fabric} ' \
+                   f'--tags {args.tag} ' \
+                   f'-n {args.name} ' \
+                   f'--cert {args.cert} ' \
+                   f'--message "{args.message}" '
+
+    # The remaining are optional, so must check if they exist
+    if args.force:
+        stop_command += f'--force'
+
+    return stop_command
+
+
+def build_datastream_pause_command(args):
+    pause_command = f'{BASE_TOOL_COMMAND} {PAUSE_COMMAND} ' \
+                    f'-f {args.fabric} ' \
+                    f'--tags {args.tag} ' \
+                    f'-n {args.name} ' \
+                    f'--cert {args.cert} ' \
+                    f'--message "{args.message}" '
+
+    # The remaining are optional, so must check if they exist
+    if args.topic:
+        pause_command += f'--topic {args.topic} '
+    if args.partitions:
+        pause_command += f'--partitions {join_csv_values(args.partitions)} '
+    if args.force:
+        pause_command += f'--force'
+
+    return pause_command
+
+
+def build_datastream_resume_command(args):
+    resume_command = f'{BASE_TOOL_COMMAND} {RESUME_COMMAND} ' \
+                     f'-f {args.fabric} ' \
+                     f'--tags {args.tag} ' \
+                     f'-n {args.name} ' \
+                     f'--cert {args.cert} '
+
+    # The remaining are optional, so must check if they exist
+    if args.topic:
+        resume_command += f'--topic {args.topic} '
+    if args.partitions:
+        resume_command += f'--partitions {join_csv_values(args.partitions)}'
+
+    return resume_command
+
+
+def build_datastream_restart_command(args):
+    restart_command = f'{BASE_TOOL_COMMAND} {RESTART_COMMAND} ' \
+                      f'-f {args.fabric} ' \
+                      f'--tags {args.tag} ' \
+                      f'-n {args.name} ' \
+                      f'--cert {args.cert} '
+
+    # The remaining are optional, so must check if they exist
+    if args.wait:
+        restart_command += f'--wait {args.wait}'
+
+    return restart_command
 
 
 def run_command(command, timeout):
@@ -204,13 +369,19 @@ def fail(message):
 
 def main():
     args = parse_args()
-    cmd = ''
-    if args.cmd == 'list':
-        cmd = build_datastream_list_command(args)
-    elif args.cmd == 'create':
-        cmd = build_datastream_create_command(args)
-    elif args.cmd == 'delete':
-        cmd = build_datastream_delete_command(args)
+
+    commands = {
+        LIST_COMMAND: build_datastream_list_command,
+        CREATE_COMMAND: build_datastream_create_command,
+        DELETE_COMMAND: build_datastream_delete_command,
+        STOP_COMMAND: build_datastream_stop_command,
+        PAUSE_COMMAND: build_datastream_pause_command,
+        RESUME_COMMAND: build_datastream_resume_command,
+        RESTART_COMMAND: build_datastream_restart_command
+    }
+
+    build_command_fn = commands[args.cmd]
+    cmd = build_command_fn(args)
 
     print(cmd)
     if not args.dryrun:
