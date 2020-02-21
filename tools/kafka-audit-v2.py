@@ -4,10 +4,11 @@ a given time frame."""
 
 import argparse
 import logging
-import re
 import sys
 import time
+
 from multiprocessing.pool import ThreadPool as Pool
+from common import csv
 
 import requests
 import tqdm
@@ -22,11 +23,6 @@ COUNTS_API = '/completeness/counts?topic={topicName}&start={startTimeMs}&end={en
 
 
 def parse_args():
-    def csv(topics):
-        if re.match('^[-_.A-z0-9]+(,[-_A-z0-9]+)*,?$', topics):
-            return [i for i in topics.split(',') if i]
-        raise argparse.ArgumentError('invalid list of topics')
-
     parser = argparse.ArgumentParser(description='Get counts of all BMM topics processed by Kafka Audit V2')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--topics', type=csv, help='[Optional] CSV of topics')

@@ -3,9 +3,10 @@
 
 import argparse
 import logging
-import re
 import subprocess
 import sys
+
+from common import csv
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(message)s')
 log = logging.getLogger()
@@ -219,12 +220,6 @@ def restart_command_parser(add_parser):
     restart_command_optional_group.add_argument('--wait', type=int, required=False,
                                                 help='Time in seconds to wait between stop and resume')
     restart_command.set_defaults(cmd=RESTART_COMMAND)
-
-
-def csv(tokens):
-    if re.match('^[-_.A-z0-9]+(,[-_A-z0-9]+)*,?$', tokens):
-        return [i for i in tokens.split(',') if i]
-    raise argparse.ArgumentError('invalid list of tokens')
 
 
 def join_csv_values(values_list):
