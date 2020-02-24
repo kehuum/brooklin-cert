@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 from abc import ABC, abstractmethod
-from common import csv
+from common import csv, typename
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(message)s')
 log = logging.getLogger()
@@ -641,11 +641,6 @@ class RestartDatastream(SimpleDatastreamCommand):
         if not datastream.is_ready():
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not restarted successfully; '
                                                f'its status is: {datastream.get_status()}')
-
-
-def typename(o: object):
-    """Gets the typename of Python objects"""
-    return type(o).__name__
 
 
 def fail(message):
