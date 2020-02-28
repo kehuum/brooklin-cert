@@ -8,6 +8,7 @@ import argparse
 from agent.api import DEFAULT_ADDRESS, DEFAULT_PORT
 from agent.server.basic import XMLRPCBasicServer
 from agent.server.brooklin import XMLRPCBrooklinServer
+from agent.server.kafka import XMLRPCKafkaServer
 
 
 def parse_args():
@@ -27,7 +28,8 @@ if __name__ == '__main__':
         server_type = XMLRPCBrooklinServer
         print(f'Brooklin agent: listening to {address}:{port}')
     elif args.kafka:
-        raise NotImplementedError('Invoking XMLRPCKafkaServer is not yet supported')
+        server_type = XMLRPCKafkaServer
+        print(f'Kafka agent: listening to {address}:{port}')
     else:
         server_type = XMLRPCBasicServer
         print(f'Basic agent: listening to {address}:{port}')

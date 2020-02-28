@@ -1,11 +1,11 @@
 from xmlrpc.client import ServerProxy
 
-from agent.api.brooklin import BrooklinCommands
+from agent.api.kafka import KafkaCommands
 from agent.client.basic import XMLRPCBasicClientMixIn, XMLRPCClientBase
 
 
-class XMLRPCBrooklinClientMixIn(BrooklinCommands):
-    """This mix-in the provides all the Brooklin
+class XMLRPCKafkaClientMixIn(KafkaCommands):
+    """This mix-in the provides all the Kafka
     client functionality. It cannot be instantiated
     or used on its own, but it can be combined with
     any type that provides the instance method:
@@ -16,16 +16,16 @@ class XMLRPCBrooklinClientMixIn(BrooklinCommands):
         super().__init__(**kwargs)
         self.__proxy: ServerProxy = self._get_proxy()
 
-    def stop_brooklin(self):
+    def stop_kafka(self):
         pass
 
-    def kill_brooklin(self):
+    def kill_kafka(self):
         proxy = self.__proxy
-        proxy.kill_brooklin()
+        proxy.kill_kafka()
 
 
-class XMLRPCBrooklinClient(XMLRPCBrooklinClientMixIn, XMLRPCBasicClientMixIn, XMLRPCClientBase):
-    """This is a Brooklin XML RPC client that offers all the functions
-    defined in agent.api.basic.BasicCommands and agent.api.brooklin.BrooklinCommands
+class XMLRPCKafkaClient(XMLRPCKafkaClientMixIn, XMLRPCBasicClientMixIn, XMLRPCClientBase):
+    """This is a Kafka XML RPC client that offers all the functions
+    defined in agent.api.basic.BasicCommands and agent.api.kafka.KafkaCommands
     """
     pass

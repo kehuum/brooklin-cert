@@ -6,7 +6,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 
 from agent.api.brooklin import BrooklinCommands
 from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
-from agent.utils import is_process_running
+from agent.utils import is_process_running, get_pid_from_file
 
 
 class XMLRPCBrooklinServerMixIn(BrooklinCommands):
@@ -32,7 +32,7 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         pass
 
     def kill_brooklin(self):
-        pid = XMLRPCBrooklinServerMixIn.get_brooklin_pid()
+        pid = get_pid_from_file('/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid')
 
         is_running, msg = is_process_running(pid)
         logging.info(f'Brooklin pid retrieval status: {msg}')
@@ -46,14 +46,6 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         except Exception as e:
             logging.error(f'Error when trying to kill Brooklin: {e}')
             raise
-
-    # Static helper functions
-    @staticmethod
-    def get_brooklin_pid():
-        brooklin_pid_file = '/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid'
-        with open(brooklin_pid_file) as pid_file:
-            brooklin_pid = pid_file.readline().strip()
-            return int(brooklin_pid)
 
 
 class XMLRPCBrooklinServer(XMLRPCBrooklinServerMixIn, XMLRPCBasicServerMixIn, XMLRPCServerBase):

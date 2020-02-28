@@ -17,3 +17,9 @@ def is_process_running(pid):
         return False, "Process does not exist"
     else:
         return True, "Process exists and permissions exist to signal the process"
+
+
+def get_pid_from_file(pid_file_name):
+    with open(pid_file_name) as pid_file:
+        pid = pid_file.read().strip()
+        return int(pid)

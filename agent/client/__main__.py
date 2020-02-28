@@ -8,6 +8,7 @@ import argparse
 from agent.api import DEFAULT_PORT
 from agent.client.basic import XMLRPCBasicClient
 from agent.client.brooklin import XMLRPCBrooklinClient
+from agent.client.kafka import XMLRPCKafkaClient
 
 
 def parse_args():
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     if args.brooklin:
         client_type = XMLRPCBrooklinClient
     elif args.kafka:
-        raise NotImplementedError('Invoking XMLRPCKafkaClient is not yet supported')
+        client_type = XMLRPCKafkaClient
     else:
         client_type = XMLRPCBasicClient
 
