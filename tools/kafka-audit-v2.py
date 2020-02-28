@@ -66,7 +66,7 @@ def get_audit_counts(topic, start_ms, end_ms):
     url = BASE_URL + COUNTS_API.format(topicName=topic, startTimeMs=start_ms, endTimeMs=end_ms)
     log.debug('Querying counts for topic {0} with URL: "{1}"'.format(topic, url))
     r = requests.get(url)
-    if r.status_code == 200:
+    if r.status_code == requests.codes.ok:
         return r.json()
     else:
         print("Error in processing topic %s" % topic)

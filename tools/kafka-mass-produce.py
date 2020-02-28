@@ -6,11 +6,11 @@ import string
 import random
 
 from multiprocessing import Process
+from common import DEFAULT_CA_FILE
 from kafka import KafkaProducer
 
 
 def parse_args():
-    default_ca_file = '/etc/riddler/ca-bundle.crt'
     default_cert_file = 'identity.pem'
 
     parser = argparse.ArgumentParser(description="Mass-produce data to Kafka")
@@ -29,8 +29,8 @@ def parse_args():
                                help='Size of each message produced to Kafka topic (default = 1K)')
     optional_args.add_argument('-c', '--cert', dest='ssl_certfile', required=False, default=default_cert_file,
                                help=f'SSL certificate file path (PEM format) (default = ./{default_cert_file})')
-    optional_args.add_argument('--ca', dest='ssl_cafile', required=False, default=default_ca_file,
-                               help=f'SSL certificate authority file path (PEM format) (default = {default_ca_file})')
+    optional_args.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_CA_FILE,
+                               help=f'SSL certificate authority file path (default = {DEFAULT_CA_FILE})')
 
     args = parser.parse_args()
     if not os.path.isfile(args.ssl_certfile):

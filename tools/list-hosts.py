@@ -2,9 +2,8 @@
 
 import argparse
 import sys
-import requests
 
-from common import typename, OperationFailedError
+from common import OperationFailedError, list_hosts
 
 
 def parse_args():
@@ -13,20 +12,6 @@ def parse_args():
     required_arguments_group.add_argument('-f', '--fabric', required=True, help='Fabric to use')
     required_arguments_group.add_argument('-t', '--tag', required=True, help='Product tag to use')
     return parser.parse_args()
-
-
-def list_hosts(fabric, tag):
-    url = f'http://range.corp.linkedin.com/range/list?%{fabric}.tag_hosts:{tag}'
-    try:
-        response = requests.get(url)
-    except requests.exceptions.RequestException as err:
-        raise OperationFailedError('Encountered an error issuing a request to range server', err)
-    else:
-        status_code = response.status_code
-        if status_code != 200:
-            raise OperationFailedError(f'Received a response with unsuccessful status code from range server: '
-                                       f'{status_code}')
-        return response.text.splitlines()
 
 
 def main():
