@@ -44,5 +44,6 @@ class XMLRPCBasicClientMixIn(BasicCommands):
 
 class XMLRPCBasicClient(XMLRPCBasicClientMixIn, XMLRPCClientBase):
     """This is a basic XML RPC client that offers all the functions
-    defined in automation.common.api.BasicCommands"""
+    defined in agent.api.basic.BasicCommands
+    """
     pass

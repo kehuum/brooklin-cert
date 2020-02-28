@@ -16,7 +16,7 @@ class XMLRPCServerBase(object):
     def __init__(self, address=DEFAULT_ADDRESS, port=DEFAULT_PORT):
         self.__address = address
         self.__port = port
-        self.__server = SimpleXMLRPCServer((address, port), bind_and_activate=False)
+        self.__server = SimpleXMLRPCServer((address, port), bind_and_activate=False, allow_none=True)
 
     def __enter__(self):
         self.__server.__enter__()
@@ -60,6 +60,6 @@ class XMLRPCBasicServerMixIn(BasicCommands):
 
 class XMLRPCBasicServer(XMLRPCBasicServerMixIn, XMLRPCServerBase):
     """This is a basic XML RPC server that offers all the functions
-    define in automation.common.api.BasicCommands
+    define in agent.api.basic.BasicCommands
     """
     pass
