@@ -6,6 +6,10 @@ class KafkaCommands(ABC):
     clients can request from Kafka server agents.
     """
     @abstractmethod
+    def start_kafka(self):
+        pass
+
+    @abstractmethod
     def stop_kafka(self):
         pass
 

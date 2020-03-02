@@ -1,5 +1,6 @@
 import os
 import signal
+import subprocess
 
 
 def is_process_running(pid):
@@ -23,3 +24,12 @@ def get_pid_from_file(pid_file_name):
     with open(pid_file_name) as pid_file:
         pid = pid_file.read().strip()
         return int(pid)
+
+
+def run_command(command, logging):
+    try:
+        completed = subprocess.run(command, check=True, stdout=subprocess.PIPE, shell=True)
+        logging.info(completed.stdout.decode('utf-8').rstrip())
+    except subprocess.CalledProcessError as err:
+        logging.error(f'Error: {err}')
+        raise

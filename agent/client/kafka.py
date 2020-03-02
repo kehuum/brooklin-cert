@@ -16,8 +16,13 @@ class XMLRPCKafkaClientMixIn(KafkaCommands):
         super().__init__(**kwargs)
         self.__proxy: ServerProxy = self._get_proxy()
 
+    def start_kafka(self):
+        proxy = self.__proxy
+        proxy.start_kafka()
+
     def stop_kafka(self):
-        pass
+        proxy = self.__proxy
+        proxy.stop_kafka()
 
     def kill_kafka(self):
         proxy = self.__proxy

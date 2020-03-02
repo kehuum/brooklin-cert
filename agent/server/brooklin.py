@@ -6,7 +6,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 
 from agent.api.brooklin import BrooklinCommands
 from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
-from agent.utils import is_process_running, get_pid_from_file
+from agent.utils import is_process_running, get_pid_from_file, run_command
 
 
 class XMLRPCBrooklinServerMixIn(BrooklinCommands):
@@ -17,6 +17,8 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         _get_server() -> xmlrpc.server.SimpleXMLRPCServer
     """
 
+    CONTROL_SCRIPT_PATH = '/export/content/lid/apps/brooklin-service/i001/bin/control'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__server: SimpleXMLRPCServer = self._get_server()
@@ -24,12 +26,18 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
 
     def __register_functions(self):
         server: SimpleXMLRPCServer = self.__server
+        server.register_function(self.start_brooklin)
         server.register_function(self.stop_brooklin)
         server.register_function(self.kill_brooklin)
 
     # Commands
+    def start_brooklin(self):
+        command = f'{self.CONTROL_SCRIPT_PATH} start'
+        run_command(command, logging)
+
     def stop_brooklin(self):
-        pass
+        command = f'{self.CONTROL_SCRIPT_PATH} stop'
+        run_command(command, logging)
 
     def kill_brooklin(self):
         pid = get_pid_from_file('/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid')

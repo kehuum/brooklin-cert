@@ -6,6 +6,10 @@ class BrooklinCommands(ABC):
     clients can request from Brooklin server agents.
     """
     @abstractmethod
+    def start_brooklin(self):
+        pass
+
+    @abstractmethod
     def stop_brooklin(self):
         pass
 
