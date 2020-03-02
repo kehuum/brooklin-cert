@@ -1,6 +1,15 @@
+import logging
 import os
 import signal
 import subprocess
+
+from functools import wraps
+
+
+def get_pid_from_file(pid_file_name):
+    with open(pid_file_name) as pid_file:
+        pid = pid_file.read().strip()
+        return int(pid)
 
 
 def is_process_running(pid):
@@ -20,16 +29,23 @@ def is_process_running(pid):
         return True, "Process exists and permissions exist to signal the process"
 
 
-def get_pid_from_file(pid_file_name):
-    with open(pid_file_name) as pid_file:
-        pid = pid_file.read().strip()
-        return int(pid)
+def log_errors(fn):
+    @wraps(fn)
+    def decorated_fn(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            error_message = f'{fn.__name__} failed with error: {e}\n'
+            if isinstance(e, subprocess.CalledProcessError):
+                if e.stdout:
+                    error_message += f'stdout:\n{e.stdout.decode("utf-8").strip()}\n'
+                if e.stderr:
+                    error_message += f'stderr:\n{e.stderr.decode("utf-8").strip()}\n'
+
+            logging.error(error_message)
+            raise
+    return decorated_fn
 
 
-def run_command(command, logging):
-    try:
-        completed = subprocess.run(command, check=True, stdout=subprocess.PIPE, shell=True)
-        logging.info(completed.stdout.decode('utf-8').rstrip())
-    except subprocess.CalledProcessError as err:
-        logging.error(f'Error: {err}')
-        raise
+def run_command(command):
+    subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

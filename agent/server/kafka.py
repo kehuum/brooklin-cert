@@ -14,30 +14,28 @@ class XMLRPCKafkaServerMixIn(KafkaCommands):
     server functionality. It cannot be instantiated or used
     on its own, but it can be combined with any type that
     provides the instance method:
-        _get_server() -> xmlrpc.server.SimpleXMLRPCServer
+        register_function(Callable)
     """
 
     CONTROL_SCRIPT_PATH = '/export/content/lid/apps/kafka/i001/bin/control'
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__server: SimpleXMLRPCServer = self._get_server()
         self.__register_functions()
 
     def __register_functions(self):
-        server: SimpleXMLRPCServer = self.__server
-        server.register_function(self.start_kafka)
-        server.register_function(self.stop_kafka)
-        server.register_function(self.kill_kafka)
+        self.register_function(self.start_kafka)
+        self.register_function(self.stop_kafka)
+        self.register_function(self.kill_kafka)
 
     # Commands
     def start_kafka(self):
         command = f'{self.CONTROL_SCRIPT_PATH} start'
-        run_command(command, logging)
+        run_command(command)
 
     def stop_kafka(self):
         command = f'{self.CONTROL_SCRIPT_PATH} stop'
-        run_command(command, logging)
+        run_command(command)
 
     def kill_kafka(self):
         pid = get_pid_from_file('/export/content/lid/apps/kafka/i001/logs/kafka.pid')

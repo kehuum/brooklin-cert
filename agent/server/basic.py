@@ -4,6 +4,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 
 from agent.api import DEFAULT_ADDRESS, DEFAULT_PORT
 from agent.api.basic import BasicCommands
+from agent.utils import log_errors
 
 
 class XMLRPCServerBase(object):
@@ -25,8 +26,8 @@ class XMLRPCServerBase(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return self.__server.__exit__()
 
-    def _get_server(self):
-        return self.__server
+    def register_function(self, fn):
+        self.__server.register_function(log_errors(fn))
 
     def serve(self):
         server, address, port = self.__server, self.__address, self.__port
@@ -42,16 +43,14 @@ class XMLRPCBasicServerMixIn(BasicCommands):
     server functionality. It cannot be instantiated or used
     on its own, but it can be combined with any type that
     provides the instance method:
-        _get_server() -> xmlrpc.server.SimpleXMLRPCServer
+        register_function(Callable)
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.__server: SimpleXMLRPCServer = self._get_server()
         self.__register_functions()
 
     def __register_functions(self):
-        server: SimpleXMLRPCServer = self.__server
-        server.register_function(self.whatami)
+        self.register_function(self.whatami)
 
     def whatami(self):
         process = subprocess.run("whatami", stdout=subprocess.PIPE, check=True)
