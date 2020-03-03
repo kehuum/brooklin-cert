@@ -13,3 +13,8 @@ class BasicCommands(ABC):
     def whatami(self):
         """Runs the whatami command on a host"""
         pass
+
+    @abstractmethod
+    def ping(self):
+        """Returns a dummy response. Useful for testing connectivity"""
+        pass

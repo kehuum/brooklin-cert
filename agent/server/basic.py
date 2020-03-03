@@ -45,16 +45,21 @@ class XMLRPCBasicServerMixIn(BasicCommands):
     provides the instance method:
         register_function(Callable)
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__register_functions()
 
     def __register_functions(self):
         self.register_function(self.whatami)
+        self.register_function(self.ping)
 
     def whatami(self):
         process = subprocess.run("whatami", stdout=subprocess.PIPE, check=True)
         return process.stdout.decode("utf-8").strip()
+
+    def ping(self):
+        return "pong"
 
 
 class XMLRPCBasicServer(XMLRPCBasicServerMixIn, XMLRPCServerBase):

@@ -33,6 +33,7 @@ class XMLRPCBasicClientMixIn(BasicCommands):
     any type that provides the instance method:
         _get_proxy() -> xmlrpc.client.ServerProxy
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__proxy: ServerProxy = self._get_proxy()
@@ -40,6 +41,10 @@ class XMLRPCBasicClientMixIn(BasicCommands):
     def whatami(self):
         proxy = self.__proxy
         return proxy.whatami()
+
+    def ping(self):
+        proxy = self.__proxy
+        return proxy.ping()
 
 
 class XMLRPCBasicClient(XMLRPCBasicClientMixIn, XMLRPCClientBase):
