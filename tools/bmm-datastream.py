@@ -114,20 +114,21 @@ class ArgumentParser(object):
         create_command_group.add_argument('--sourcecluster', required=True, help='The Kafka cluster to mirror from')
 
         create_command_group.add_argument('--destinationcluster', required=True, help='The Kafka cluster to mirror to')
-        create_command_group.add_argument('--jira', required=True,
-                                          help='The JIRA ticket (e.g. CM-60690) that contains approval for creating'
-                                               ' a Kafka Mirror Maker datastream')
 
         # Add all the optional arguments for the create sub-command
         create_command_optional_group = create_command.add_argument_group('optional arguments')
+        create_command_optional_group.add_argument('--jira', default="DATAPIPES-18111",
+                                                   help='The JIRA ticket (defaults to DATAPIPES-18111) that contains'
+                                                        ' approval for creating a Kafka Mirror Maker datastream')
         create_command_optional_group.add_argument('--destinationfabric', required=False,
                                                    help='The destination fabric to mirror to (defaults to --fabric)')
         create_command_optional_group.add_argument('--numtasks', type=int, default=1,
-                                                   help='The number of Datastream tasks (consumer-producer pairs) to create'
-                                                        ' for the mirroring pipeline; Defaults to 1 per host in the'
-                                                        ' Brooklin cluster')
+                                                   help='The number of Datastream tasks (consumer-producer pairs) to'
+                                                        ' create for the mirroring pipeline; Defaults to 1 per host in'
+                                                        ' the Brooklin cluster')
         create_command_optional_group.add_argument('--offsetreset',
-                                                   help='Creates the datastream with the given auto.offset.reset strategy')
+                                                   help='Creates the datastream with the given auto.offset.reset'
+                                                        ' strategy')
         create_command_optional_group.add_argument('--groupid',
                                                    help='The consumer group for the datastream. Defaults to the'
                                                         'datastream name')
@@ -158,12 +159,12 @@ class ArgumentParser(object):
         delete_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
         delete_command_group.add_argument('--cert', '-c', required=True,
                                           help='Certificate to use to for 2FA with brooklin-tool')
-        delete_command_group.add_argument('--jira', required=True,
-                                          help='The JIRA ticket (e.g. CM-60690) that contains approval for deleting'
-                                               ' a Kafka Mirror Maker datastream')
 
         # Add all the optional arguments for the delete sub-command
         delete_command_optional_group = delete_command.add_argument_group('optional arguments')
+        delete_command_optional_group.add_argument('--jira', default="DATAPIPES-18111",
+                                                   help='The JIRA ticket (defaults to DATAPIPES-18111) that contains'
+                                                        ' approval for deleting a Kafka Mirror Maker datastream')
         delete_command_optional_group.add_argument('--force', action='store_true',
                                                    help='Skip the interactive prompt to perform the force delete')
         delete_command.set_defaults(cmd=DeleteDatastream)
@@ -490,7 +491,6 @@ class DatastreamCommand(object):
     def run_command(command, timeout=60):
         """A utility for executing shell commands"""
 
-        print(f"Running command: {command}")
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             returncode = process.wait(timeout)
@@ -512,7 +512,9 @@ class SimpleDatastreamCommand(DatastreamCommand, ABC):
      """
 
     def execute(self):
-        return DatastreamCommand.run_command(self.command)
+        print(f"Running command: {self.command}")
+        if not self.args.dryrun:
+            return DatastreamCommand.run_command(self.command)
 
     @property
     @abstractmethod
@@ -670,12 +672,13 @@ def main():
         if output:
             print(output)
 
-    # validate command
-    try:
-        datastream_command.validate()
-    except DatastreamCommandError as err:
-        fail(f"Encountered an error validating {datastream_command_typename} command: \n"
-             f"{err}")
+    # validate command if not in dryrun mode
+    if not args.dryrun:
+        try:
+            datastream_command.validate()
+        except DatastreamCommandError as err:
+            fail(f"Encountered an error validating {datastream_command_typename} command: \n"
+                 f"{err}")
 
 
 if __name__ == '__main__':
