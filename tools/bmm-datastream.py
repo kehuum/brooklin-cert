@@ -19,6 +19,7 @@ GET_COMMAND = 'get'
 LIST_COMMAND = 'list'
 CREATE_COMMAND = 'create'
 DELETE_COMMAND = 'delete'
+UPDATE_COMMAND = 'update'
 STOP_COMMAND = 'stop'
 PAUSE_COMMAND = 'pause'
 RESUME_COMMAND = 'resume'
@@ -61,6 +62,7 @@ class ArgumentParser(object):
         self.list_command_parser()
         self.create_command_parser()
         self.delete_command_parser()
+        self.update_command_parser()
         self.stop_command_parser()
         self.pause_command_parser()
         self.resume_command_parser()
@@ -168,6 +170,34 @@ class ArgumentParser(object):
         delete_command_optional_group.add_argument('--force', action='store_true',
                                                    help='Skip the interactive prompt to perform the force delete')
         delete_command.set_defaults(cmd=DeleteDatastream)
+
+    def update_command_parser(self):
+        # All the arguments for the update sub-command
+        update_command = self.add_subparser(UPDATE_COMMAND, help='Update a datastream')
+
+        # Add all the required arguments for the update sub-command
+        update_command_group = update_command.add_argument_group('required arguments')
+        update_command_group.add_argument('--name', '-n', required=True, help='Datastream name')
+        update_command_group.add_argument('--cert', '-c', required=True,
+                                          help='Certificate to use to for 2FA with brooklin-tool')
+        update_command_group.add_argument('--metadata', required=True, action='append',
+                                          help='Metadata property overrides defined as key value pairs separated '
+                                               'by ":". This can be repeated to specify multiple properties')
+
+        # Add all the optional arguments for the create sub-command
+        update_command_optional_group = update_command.add_argument_group('optional arguments')
+        update_command_optional_group.add_argument('--jira', default="DATAPIPES-18111",
+                                                   help='The JIRA ticket (defaults to DATAPIPES-18111) that contains'
+                                                        ' approval for updating a Kafka Mirror Maker datastream')
+        update_command_optional_group.add_argument('--newwhitelist', help='The whitelist regular expression that'
+                                                                          ' describes the set of topics to mirror')
+        update_command_optional_group.add_argument('--force', action='store_true',
+                                                   help='Skip the interactive prompt to perform the force update')
+        update_command_optional_group.add_argument('--restart', action='store_true',
+                                                   help='If specified, will stop and resume the datastream on update')
+        update_command_optional_group.add_argument('--wait', type=int, required=False,
+                                                   help='Time in seconds to wait between stop and resume')
+        update_command.set_defaults(cmd=UpdateDatastream)
 
     def stop_command_parser(self):
         # All the arguments for the stop sub-command
@@ -314,6 +344,30 @@ class BrooklinToolCommandBuilder(object):
         return delete_command
 
     @staticmethod
+    def build_datastream_update_command(args):
+        update_command = f'{BASE_TOOL_COMMAND} {UPDATE_COMMAND} ' \
+                         f'-f {args.fabric} ' \
+                         f'--tags {args.tag} ' \
+                         f'-n {args.name} ' \
+                         f'--jira {args.jira} ' \
+                         f'--cert {args.cert} '
+
+        join_csv_values = BrooklinToolCommandBuilder.join_csv_values
+        update_command += f'--metadata {join_csv_values(args.metadata)} '
+
+        # The remaining are optional, so must check if they exist
+        if args.force:
+            update_command += f'--force '
+        if args.newwhitelist:
+            update_command += f'--new-whitelist {args.newwhitelist} '
+        if args.restart:
+            update_command += f'--restart '
+        if args.wait:
+            update_command += f'--wait {args.wait}'
+
+        return update_command
+
+    @staticmethod
     def build_datastream_stop_command(args):
         stop_command = f'{BASE_TOOL_COMMAND} {STOP_COMMAND} ' \
                        f'-f {args.fabric} ' \
@@ -396,20 +450,23 @@ class Datastream(object):
     def __str__(self):
         return json.dumps(self.datastream, indent=4)
 
-    def get_status(self):
+    @property
+    def status(self):
         return self.datastream.get('Status')
 
-    def status_equals(self, status):
-        return self.get_status() == status
-
     def is_ready(self):
-        return self.status_equals('READY')
+        return self.status == 'READY'
 
     def is_paused(self):
-        return self.status_equals('PAUSED')
+        return self.status == 'PAUSED'
 
     def is_stopped(self):
-        return self.status_equals('STOPPED')
+        return self.status == 'STOPPED'
+
+    @property
+    def whitelist(self):
+        conn_str = self.datastream.get("source", {}).get("connectionString", '')
+        return conn_str[conn_str.rfind('/') + 1:]
 
 
 class DatastreamCommandError(Exception):
@@ -488,7 +545,7 @@ class DatastreamCommand(object):
         pass
 
     @staticmethod
-    def run_command(command, timeout=60):
+    def run_command(command, timeout=120):
         """A utility for executing shell commands"""
 
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -557,8 +614,8 @@ class CreateDatastream(SimpleDatastreamCommand):
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
         if not datastream.is_ready():
-            raise DatastreamCommandFailedError(f"Datastream {self.args.name}' created but its status is: "
-                                               f"{datastream.get_status()}")
+            raise DatastreamCommandFailedError(f"Datastream {self.args.name} created but its status is: "
+                                               f"{datastream.status}")
 
 
 class DeleteDatastream(SimpleDatastreamCommand):
@@ -581,6 +638,25 @@ class DeleteDatastream(SimpleDatastreamCommand):
                                                f'{datastream}')
 
 
+class UpdateDatastream(SimpleDatastreamCommand):
+    """Executes brooklin-tool datastream update"""
+
+    @property
+    def command(self):
+        return BrooklinToolCommandBuilder.build_datastream_update_command(self.args)
+
+    def validate(self):
+        """Validate datastream exists and its status is READY"""
+        get_command = GetDatastream(self.args)
+        datastream = get_command.execute()
+        if not datastream.is_ready():
+            raise DatastreamCommandFailedError(f"Datastream {self.args.name} updated but its status is: "
+                                               f"{datastream.status}")
+        if self.args.newwhitelist and datastream.whitelist != self.args.newwhitelist:
+            raise DatastreamCommandFailedError(f"Datastream {self.args.name} whitelist update failed. "
+                                               f"Current whitelist is: {datastream.whitelist}")
+
+
 class StopDatastream(SimpleDatastreamCommand):
     """Executes brooklin-tool datastream stop"""
 
@@ -594,7 +670,7 @@ class StopDatastream(SimpleDatastreamCommand):
         datastream = get_command.execute()
         if not datastream.is_stopped():
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not stopped successfully; '
-                                               f'its status is: {datastream.get_status()}')
+                                               f'its status is: {datastream.status}')
 
 
 class PauseDatastream(SimpleDatastreamCommand):
@@ -610,7 +686,7 @@ class PauseDatastream(SimpleDatastreamCommand):
         datastream = get_command.execute()
         if not datastream.is_paused():
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not paused successfully; '
-                                               f'its status is: {datastream.get_status()}')
+                                               f'its status is: {datastream.status}')
 
 
 class ResumeDatastream(SimpleDatastreamCommand):
@@ -626,7 +702,7 @@ class ResumeDatastream(SimpleDatastreamCommand):
         datastream = get_command.execute()
         if not datastream.is_ready():
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not resumed successfully; '
-                                               f'its status is: {datastream.get_status()}')
+                                               f'its status is: {datastream.status}')
 
 
 class RestartDatastream(SimpleDatastreamCommand):
@@ -642,7 +718,7 @@ class RestartDatastream(SimpleDatastreamCommand):
         datastream = get_command.execute()
         if not datastream.is_ready():
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not restarted successfully; '
-                                               f'its status is: {datastream.get_status()}')
+                                               f'its status is: {datastream.status}')
 
 
 def fail(message):
