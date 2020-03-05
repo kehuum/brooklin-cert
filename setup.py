@@ -1,13 +1,20 @@
+import glob
 import setuptools
+
+
+def get_files(*dirs, ext='*'):
+    scripts = []
+    for d in dirs:
+        scripts += glob.glob(f'{d}/*.{ext}')
+    return scripts
+
 
 setuptools.setup(
     name="brooklin-certification",
     version="0.0.1",
     packages=setuptools.find_packages(),
-    scripts=["samples/kafka-consume.py",
-             "samples/kafka-produce.py",
-             "tools/kafka/kafka-audit-v2.py"],
-    data_files=[("data", ["data/topics.txt"])],
+    scripts=get_files("tools", "samples", ext="py"),
+    data_files=[("data", get_files("data", ext="txt"))],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
