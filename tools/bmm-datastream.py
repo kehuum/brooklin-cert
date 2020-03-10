@@ -41,9 +41,6 @@ class ArgumentParser(object):
         # Create a common parser which can be shared by all sub-commands
         self.common_parser = argparse.ArgumentParser(add_help=False)
 
-        # Create a common parser which can be shared by all sub-commands
-        self.common_parser = argparse.ArgumentParser(add_help=False)
-
         # Add all the optional arguments for the common parser
         self.common_parser.add_argument('--debug', action='store_true')
         self.common_parser.add_argument('--dryrun', action='store_true', help='Prints the command without running it')
