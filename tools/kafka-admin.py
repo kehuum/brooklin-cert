@@ -14,10 +14,12 @@ log = logging.getLogger()
 
 CREATE_TOPIC_COMMAND = 'create_topic'
 DELETE_TOPIC_COMMAND = 'delete_topic'
+LIST_TOPICS_COMMAND = 'list_topics'
 
 
 class AdminClient(object):
     def __init__(self, bootstrap_servers, cert_file, key_file):
+        self.bootstrap_servers = bootstrap_servers
         self.admin_client = self.create_admin_client(bootstrap_servers, cert_file, key_file)
 
     @staticmethod
@@ -46,6 +48,12 @@ class AdminClient(object):
     def delete_topic(self, name):
         logging.info(f'Deleting topic: {name}')
         self.admin_client.delete_topics([name])
+
+    def list_topics(self):
+        logging.info(f'Listing topics for bootstrap_servers: {self.bootstrap_servers}')
+        topics = self.admin_client.list_topics()
+        logging.debug(f'Topics in {self.bootstrap_servers}: {topics}')
+        return topics
 
 
 def parse_args():
@@ -76,6 +84,7 @@ def parse_args():
 
     create_topic_command_parser(add_subparser)
     delete_topic_command_parser(add_subparser)
+    list_topics_command_parser(add_subparser)
 
     args = parser.parse_args()
 
@@ -113,6 +122,12 @@ def delete_topic_command_parser(add_parser):
     delete_command.set_defaults(cmd=DELETE_TOPIC_COMMAND)
 
 
+def list_topics_command_parser(add_parser):
+    # All the arguments for the list topic sub-command
+    list_command = add_parser(LIST_TOPICS_COMMAND, help='List Kafka topics in a cluster')
+    list_command.set_defaults(cmd=LIST_TOPICS_COMMAND)
+
+
 def create_topic(admin_client, args):
     admin_client.create_topic(args.name, args.partitions, args.replication_factor, args.topic_configs)
 
@@ -121,12 +136,17 @@ def delete_topic(admin_client, args):
     admin_client.delete_topic(args.name)
 
 
+def list_topics(admin_client, args):
+    return admin_client.list_topics()
+
+
 def main():
     args = parse_args()
 
     commands = {
         CREATE_TOPIC_COMMAND: create_topic,
-        DELETE_TOPIC_COMMAND: delete_topic
+        DELETE_TOPIC_COMMAND: delete_topic,
+        LIST_TOPICS_COMMAND: list_topics
     }
 
     admin_client = AdminClient(args.bootstrap_servers, args.cert_file, args.key_file)
