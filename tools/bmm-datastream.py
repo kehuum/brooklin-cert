@@ -349,8 +349,8 @@ class BrooklinToolCommandBuilder(object):
                          f'--jira {args.jira} ' \
                          f'--cert {args.cert} '
 
-        join_csv_values = BrooklinToolCommandBuilder.join_csv_values
-        update_command += f'--metadata {join_csv_values(args.metadata)} '
+        for metadata in args.metadata:
+            update_command += f'--metadata {metadata} '
 
         # The remaining are optional, so must check if they exist
         if args.force:
