@@ -71,10 +71,7 @@ class ArgumentParser(object):
         if args.debug:
             log.setLevel(logging.DEBUG)
 
-        if args.cmd == CREATE_COMMAND:
-            # Destination fabric is picked up from the fabric if not set
-            if not args.destinationfabric:
-                args.destinationfabric = args.fabric
+        if args.cmd is CreateDatastream:
             # Validate that at least one principal is passed
             if not args.users and not args.groups and not args.applications:
                 self.parser.error('At least one of --users/--groups/--applications just be specified')
@@ -109,18 +106,17 @@ class ArgumentParser(object):
         create_command_group.add_argument('--whitelist', required=True,
                                           help='The whitelist regular expression that describes the set of topics to'
                                                ' mirror')
-        create_command_group.add_argument('--sourcefabric', required=True, help='The source fabric to mirror from')
-        create_command_group.add_argument('--sourcecluster', required=True, help='The Kafka cluster to mirror from')
+        create_command_group.add_argument('--scd', required=True, dest='src_cluster_dns',
+                                          help='The DNS of the source Kafka cluster to mirror from')
 
-        create_command_group.add_argument('--destinationcluster', required=True, help='The Kafka cluster to mirror to')
+        create_command_group.add_argument('--dcd', dest='dest_cluster_dns', required=True,
+                                          help='The DNS of the destination Kafka cluster to mirror to')
 
         # Add all the optional arguments for the create sub-command
         create_command_optional_group = create_command.add_argument_group('optional arguments')
         create_command_optional_group.add_argument('--jira', default="DATAPIPES-18111",
                                                    help='The JIRA ticket (defaults to DATAPIPES-18111) that contains'
                                                         ' approval for creating a Kafka Mirror Maker datastream')
-        create_command_optional_group.add_argument('--destinationfabric', required=False,
-                                                   help='The destination fabric to mirror to (defaults to --fabric)')
         create_command_optional_group.add_argument('--numtasks', type=int, default=1,
                                                    help='The number of Datastream tasks (consumer-producer pairs) to'
                                                         ' create for the mirroring pipeline; Defaults to 1 per host in'
@@ -291,10 +287,8 @@ class BrooklinToolCommandBuilder(object):
                          f'--tag {args.tag} ' \
                          f'-n {args.name} ' \
                          f'--whitelist {args.whitelist} ' \
-                         f'--source-fabric {args.sourcefabric} ' \
-                         f'--source-cluster {args.sourcecluster} ' \
-                         f'--destination-fabric {args.destinationfabric} ' \
-                         f'--destination-cluster {args.destinationcluster} ' \
+                         f'--source-cluster-dns {args.src_cluster_dns} ' \
+                         f'--destination-cluster-dns {args.dest_cluster_dns} ' \
                          f'--jira {args.jira} ' \
                          f'--num-tasks {args.numtasks} ' \
                          f'--cert {args.cert} '
