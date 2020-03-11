@@ -16,6 +16,14 @@ class XMLRPCBrooklinClientMixIn(BrooklinCommands):
         super().__init__(**kwargs)
         self.__proxy: ServerProxy = self._get_proxy()
 
+    def pause_brooklin(self):
+        proxy = self.__proxy
+        proxy.pause_brooklin()
+
+    def resume_brooklin(self):
+        proxy = self.__proxy
+        proxy.resume_brooklin()
+
     def start_brooklin(self):
         proxy = self.__proxy
         proxy.start_brooklin()

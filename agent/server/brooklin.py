@@ -22,11 +22,21 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         self.__register_functions()
 
     def __register_functions(self):
+        self.register_function(self.pause_brooklin)
+        self.register_function(self.resume_brooklin)
         self.register_function(self.start_brooklin)
         self.register_function(self.stop_brooklin)
         self.register_function(self.kill_brooklin)
 
     # Commands
+    def pause_brooklin(self):
+        logging.info("Trying to pause Brooklin")
+        self.send_signal(signal.SIGSTOP)
+
+    def resume_brooklin(self):
+        logging.info("Trying to resume Brooklin")
+        self.send_signal(signal.SIGCONT)
+
     def start_brooklin(self):
         command = f'{self.CONTROL_SCRIPT_PATH} start'
         run_command(command)
@@ -36,19 +46,24 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         run_command(command)
 
     def kill_brooklin(self):
+        logging.info("Trying to kill Brooklin")
+        self.send_signal(signal.SIGKILL)
+
+    @staticmethod
+    def send_signal(sig):
         pid = get_pid_from_file('/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid')
 
         is_running, msg = is_process_running(pid)
         logging.info(f'Brooklin pid retrieval status: {msg}')
         if not is_running:
-            logging.error(f'Cannot kill Brooklin: process {pid} not running')
+            logging.error(f'Cannot send {sig} signal to Brooklin: process {pid} not running')
             raise Exception(f'Brooklin process {pid} is not running: {msg}')
 
-        logging.info(f'Killing Brooklin with pid: {pid}')
+        logging.info(f'Sending {sig} to Brooklin with pid: {pid}')
         try:
-            os.kill(pid, signal.SIGKILL)
+            os.kill(pid, sig)
         except Exception as e:
-            logging.error(f'Error when trying to kill Brooklin: {e}')
+            logging.error(f'Error when trying to send {sig} to Brooklin: {e}')
             raise
 
 
