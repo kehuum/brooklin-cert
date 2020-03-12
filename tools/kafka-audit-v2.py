@@ -6,104 +6,90 @@ import argparse
 import logging
 import sys
 import time
+import requests
+import tqdm
 
 from multiprocessing.pool import ThreadPool as Pool
 from common import csv
 
-import requests
-import tqdm
 
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()
 
-BASE_URL = 'http://kafka-auditing-reporter.corp-lca1.atd.corp.linkedin.com:8332/kafka-auditing-reporter/v2/api'
-
-TOPICS_API = '/completeness/topics'
-COUNTS_API = '/completeness/counts?topic={topicName}&start={startTimeMs}&end={endTimeMs}&version=v2&pipeline=cert'
+BASE_URL = 'http://kafka-auditing-reporter.corp-lca1.atd.corp.linkedin.com:8332' \
+           '/kafka-auditing-reporter/v2/api/completeness'
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Get counts of all BMM topics processed by Kafka Audit V2')
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--topics', type=csv, help='[Optional] CSV of topics')
-    parser.add_argument('--output', help='[Optional] path to store logs and results')
-    parser.add_argument('--topicsfile', help='[Optional] path to input topics file, with a single topic on each line')
-    parser.add_argument('--startms', '-s', type=int,
-                        help='Start time in milliseconds since epoch. --endms is required', required=True)
-    parser.add_argument('--endms', '-e', type=int, help='End time in milliseconds since epoch. --startms is required',
-                        required=True)
+    parser.add_argument('--topics', type=csv, default=[], help='CSV of topics')
+    parser.add_argument('--output', help='Path to store logs and results')
+    parser.add_argument('--topicsfile', help='Path to input topics file, with a single topic on each line')
     parser.add_argument('--threshold', '-t', type=int, help='Percentage threshold at which to fail audit', default=3)
 
-    p = parser.parse_args()
+    required_arguments_group = parser.add_argument_group('required arguments')
+    required_arguments_group.add_argument('--startms', '-s', type=int, required=True,
+                                          help='Start time in milliseconds since epoch. --endms is required')
+    required_arguments_group.add_argument('--endms', '-e', type=int, required=True,
+                                          help='End time in milliseconds since epoch. --startms is required')
+    args = parser.parse_args()
 
-    if not p.debug:
-        log.setLevel(logging.INFO)
+    if args.debug:
+        log.setLevel(logging.DEBUG)
 
-    if p.endms and not p.startms:
-        raise argparse.ArgumentError('--endms requires --startms/--starthoursago')
+    if args.endms and not args.startms:
+        parser.error('--endms requires --startms/--starthoursago')
 
-    if p.topicsfile:
-        file_topics = get_topic_list_from_file(p.topicsfile)
-        if p.topics:
-            p.topics = p.topics + file_topics
-        else:
-            p.topics = file_topics
+    if args.topicsfile:
+        args.topics += get_topic_list_from_file(args.topicsfile)
 
-    return p
+    return args
 
 
 def get_topic_list_from_file(topics_file):
-    file_topics = []
-    with open(topics_file) as file:
-        for line in file:
-            topic = line.strip()
-            if topic[0] != '#':
-                file_topics.append(topic)
-    return file_topics
+    return [line.strip() for line in open(topics_file) if not line.startswith('#')]
 
 
 def get_audit_counts(topic, start_ms, end_ms):
-    url = BASE_URL + COUNTS_API.format(topicName=topic, startTimeMs=start_ms, endTimeMs=end_ms)
+    counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=cert'
+    url = BASE_URL + counts_api
     log.debug('Querying counts for topic {0} with URL: "{1}"'.format(topic, url))
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
         return r.json()
-    else:
-        print("Error in processing topic %s" % topic)
+    print("Error in processing topic %s" % topic)
     raise ValueError()
 
 
 def is_cert_tier(topic_counts):
-    if 'cert' in ",".join(topic_counts['totalsPerTier'].keys()):
-        return True
-    return False
+    return 'cert' in ",".join(topic_counts['totalsPerTier'].keys())
 
 
 def process(topic, start_ms, end_ms):
     try:
         topic_counts = get_audit_counts(topic, start_ms, end_ms)
-        if 'cert' in ",".join(topic_counts['totalsPerTier'].keys()):
-            return topic, topic_counts
     except ValueError as e:
         log.error('Unable to get audit counts, error: {}'.format(e), file=sys.stderr)
         return False
-    return False
-
-
-def process_unpack(args):
-    return process(*args)
+    else:
+        return (topic, topic_counts) if is_cert_tier(topic_counts) else False
 
 
 def find_cert_tier_counts(topics, start_ms, end_ms):
-    pool = Pool(4)
-    topic_counts_map = dict(filter(None, list(
-        tqdm.tqdm(pool.imap(process_unpack, [(topic, start_ms, end_ms) for topic in topics]), total=len(topics)))))
-    pool.close()
-    return topic_counts_map
+    def process_unpack(args):
+        return process(*args)
+
+    with Pool(4) as pool:
+        topic_counts_map = dict(filter(None, list(
+            tqdm.tqdm(pool.imap(process_unpack, [(topic, start_ms, end_ms) for topic in topics]), total=len(topics)))))
+        return topic_counts_map
 
 
 def get_all_topics():
-    r = requests.get(BASE_URL + TOPICS_API)
+    topics_api = '/topics'
+    url = BASE_URL + topics_api
+    r = requests.get(url)
     return r.json()
 
 
@@ -175,30 +161,27 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
 
 
 def main():
-    p = parse_args()
+    args = parse_args()
 
-    if p.output:
-        sys.stdout = open(p.output, 'w')
+    if args.output:
+        sys.stdout = open(args.output, 'w')
 
-    log.info('Checking audit FROM "{0}" TO "{1}"'.format(time.ctime(p.startms / 1000), time.ctime(p.endms / 1000)))
-    if not p.topics:
+    log.info('Checking audit FROM "{0}" TO "{1}"'.format(time.ctime(args.startms / 1000), time.ctime(args.endms / 1000)))
+    if not args.topics:
         topics = get_all_topics()
-        topic_counts_map = find_cert_tier_counts(topics, p.startms, p.endms)
+        topic_counts_map = find_cert_tier_counts(topics, args.startms, args.endms)
     else:
-        topic_counts_map = find_cert_tier_counts(p.topics, p.startms, p.endms)
+        topic_counts_map = find_cert_tier_counts(args.topics, args.startms, args.endms)
 
     print_summary_table(topic_counts_map)
     print('\nCounts were from beginTimestamp={0}({1}) to endTimestamp={2}({3})'.format(
-            p.startms, time.ctime(p.startms / 1000), p.endms, time.ctime(p.endms / 1000)))
-    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, p.threshold)
-    print('Aggregate audit counting pass threshold {}, passed: {}'.format(p.threshold, is_pass))
+            args.startms, time.ctime(args.startms / 1000), args.endms, time.ctime(args.endms / 1000)))
+    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.threshold)
+    print('Aggregate audit counting pass threshold {}, passed: {}'.format(args.threshold, is_pass))
 
     sys.stdout = sys.__stdout__
 
-    if is_pass:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    sys.exit(0 if is_pass else 1)
 
 
 if __name__ == '__main__':
