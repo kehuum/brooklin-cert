@@ -11,13 +11,13 @@ def get_files(*dirs, ext='*'):
 
 setuptools.setup(
     name="brooklin-certification",
-    version="0.0.1",
+    version="0.0.2",
     packages=setuptools.find_packages(),
-    scripts=get_files("tools", "samples", ext="py"),
+    scripts=get_files(".", "samples", ext="py"),
     data_files=[("data", get_files("data", ext="txt"))],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 )

@@ -1,12 +1,10 @@
 import argparse
 import re
-import requests
 import time
 import math
+import requests
 
 from typing import Callable, Any
-
-DEFAULT_CA_FILE = '/etc/riddler/ca-bundle.crt'
 
 
 class OperationFailedError(Exception):
@@ -35,22 +33,6 @@ def csv(tokens):
         return [t for t in tokens.split(',') if t]
     raise argparse.ArgumentTypeError('Invalid comma-delimited list; '
                                      'only alphanumeric characters, digits, dashes, dots, and underscores are allowed')
-
-
-def list_hosts(fabric, tag):
-    """Retrieves the list of hostnames that match the specified fabric and tag"""
-
-    url = f'http://range.corp.linkedin.com/range/list?%{fabric}.tag_hosts:{tag}'
-    try:
-        response = requests.get(url)
-    except requests.exceptions.RequestException as err:
-        raise OperationFailedError('Encountered an error issuing a request to range server', err)
-    else:
-        status_code = response.status_code
-        if status_code != requests.codes.ok:
-            raise OperationFailedError(f'Received a response with unsuccessful status code from range server: '
-                                       f'{status_code}')
-        return response.text.splitlines()
 
 
 def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x: x):
@@ -91,6 +73,7 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
                     _delay *= backoff  # make future wait longer
 
         return f_retry  # true decorator -> decorated function
+
     return deco_retry  # @retry(arg[, ...]) -> true decorator
 
 

@@ -6,8 +6,8 @@ import string
 import random
 
 from multiprocessing import Process
-from common import DEFAULT_CA_FILE
 from kafka import KafkaProducer
+from testlib import DEFAULT_CA_FILE
 
 
 def parse_args():

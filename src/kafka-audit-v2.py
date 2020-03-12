@@ -10,8 +10,7 @@ import requests
 import tqdm
 
 from multiprocessing.pool import ThreadPool as Pool
-from common import csv
-
+from testlib.core.utils import csv
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 SCRIPT_NAME=`basename "$0"`
+SOURCES_DIR=src
 DEPENDENCIES_DIR=dependencies
 DEPENDENCIES_TARBALL=$DEPENDENCIES_DIR.tar.gz
 DIST_DIR=dist
@@ -61,6 +62,8 @@ function redirect_output() {
     fi
 }
 
+redirect_output pushd $SOURCES_DIR
+
 # Generate tarball containing all script files
 echo "Generating scripts tarball ..."
 redirect_output rm -rf $DIST_DIR
@@ -72,7 +75,7 @@ echo "Generating dependencies tarball ..."
 redirect_output rm -rf $DEPENDENCIES_DIR
 redirect_output mkdir $DEPENDENCIES_DIR
 exit_on_failure "Creating $DEPENDENCIES_DIR failed"
-redirect_output pipenv lock -r | tail -n +2 > $DEPENDENCIES_DIR/requirements.txt
+pipenv lock -r | tail -n +2 > $DEPENDENCIES_DIR/requirements.txt
 exit_on_failure "Generating requirements file failed"
 redirect_output pipenv run python -m pip download -r $DEPENDENCIES_DIR/requirements.txt -d $DEPENDENCIES_DIR
 exit_on_failure "Downloading dependencies failed"
@@ -97,3 +100,5 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   redirect_output rm -rf $DEPENDENCIES_DIR $DEPENDENCIES_TARBALL $DIST_DIR *.egg-info
   exit_on_failure "Cleaning up generated files and directories failed"
 fi
+
+redirect_output popd

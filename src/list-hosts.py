@@ -3,7 +3,8 @@
 import argparse
 import sys
 
-from common import OperationFailedError, list_hosts
+from testlib.range import list_hosts
+from testlib.core.utils import OperationFailedError
 
 
 def parse_args():
