@@ -1,6 +1,8 @@
 import logging
 import os
+import re
 import signal
+import urllib.request
 
 from agent.api.brooklin import BrooklinCommands
 from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
@@ -22,6 +24,7 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         self.__register_functions()
 
     def __register_functions(self):
+        self.register_function(self.is_brooklin_leader)
         self.register_function(self.pause_brooklin)
         self.register_function(self.resume_brooklin)
         self.register_function(self.start_brooklin)
@@ -29,6 +32,17 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         self.register_function(self.kill_brooklin)
 
     # Commands
+    def is_brooklin_leader(self):
+        is_leader_url = 'http://localhost:2428/brooklin-service/jmx/mbean?objectname=metrics%3Aname%3DCoordinator' \
+                        '.isLeader '
+        response = urllib.request.urlopen(is_leader_url)
+        body = response.read().decode('utf-8')
+
+        is_leader = int(re.findall('<td align=\"right\" class=\"mbean_row\">(\d)</td>', body)[0])
+        if is_leader < 0 or is_leader > 1:
+            raise ValueError(f'isLeader parsed from response is incorrect: {is_leader}')
+        return bool(is_leader)
+
     def pause_brooklin(self):
         logging.info("Trying to pause Brooklin")
         self.send_signal(signal.SIGSTOP)
