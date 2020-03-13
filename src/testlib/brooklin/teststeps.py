@@ -4,6 +4,8 @@ from testlib.core.teststeps import RunPythonCommand
 
 DeploymentInfo = namedtuple('DeploymentInfo', ['fabric', 'tag'])
 
+DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
+
 
 class ClusterChoice(Enum):
     CONTROL = DeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.control')
@@ -12,7 +14,6 @@ class ClusterChoice(Enum):
 
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
-    DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 
     def __init__(self, cluster=ClusterChoice.CONTROL, name='basic-mirroring-datastream', whitelist='^voyager-api.*',
                  num_tasks=8, topic_create=True, identity=False, passthrough=False, partition_managed=True,
@@ -39,7 +40,7 @@ class CreateDatastream(RunPythonCommand):
 
     @property
     def main_command(self):
-        command = f'{CreateDatastream.DATASTREAM_CRUD_SCRIPT} create ' \
+        command = f'{DATASTREAM_CRUD_SCRIPT} create ' \
                   f'-n {self.name} ' \
                   f'--whitelist {self.whitelist} ' \
                   f'--numtasks {self.num_tasks} ' \
@@ -62,8 +63,32 @@ class CreateDatastream(RunPythonCommand):
 
     @property
     def cleanup_command(self):
-        return f'{CreateDatastream.DATASTREAM_CRUD_SCRIPT} delete ' \
+        return f'{DATASTREAM_CRUD_SCRIPT} delete ' \
                f'-n {self.name} ' \
                f'--cert {self.cert} ' \
                f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
                '--force'
+
+
+class RestartDatastream(RunPythonCommand):
+    """Test step for restarting a datastream"""
+
+    def __init__(self, cluster=ClusterChoice.CONTROL, name='test-restart-datastream', cert='identity.p12'):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid cluster choice: {cluster}')
+        if not name:
+            raise ValueError(f'Invalid name: {name}')
+        if not cert:
+            raise ValueError(f'Invalid cert: {cert}')
+
+        self.cluster = cluster.value
+        self.name = name
+        self.cert = cert
+
+    @property
+    def main_command(self):
+        return f'{DATASTREAM_CRUD_SCRIPT} restart ' \
+               f'-n {self.name} ' \
+               f'--cert {self.cert} ' \
+               f'-f {self.cluster.fabric} -t {self.cluster.tag}'
