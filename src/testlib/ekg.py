@@ -4,8 +4,8 @@ import requests
 
 from testlib.range import list_hosts
 from testlib.core.teststeps import RunPythonCommand
-from testlib.core.utils import send_request, retry, OperationFailedError
-from testlib.core.utils import typename
+from testlib.core.utils import send_request, retry, OperationFailedError, typename, \
+    get_response_json as get_response_json_util
 
 ANALYSIS_PASS = 'PASS'
 ANALYSIS_FAIL = 'FAIL'
@@ -66,7 +66,7 @@ class EkgClient(object):
         analysis_id: str = response_json.get('data', {}).get('id')
         if not analysis_id or not analysis_id.isdigit():
             raise OperationFailedError(f'Received an invalid JSON response from EKG server; response did not '
-                                       f'contain analysis id:\n{response_json}')
+                                       f'contain analysis ID:\n{response_json}')
         return int(analysis_id)
 
     @retry(tries=10, delay=60, backoff=2, predicate=lambda status: status in {ANALYSIS_PASS, ANALYSIS_FAIL})
@@ -75,7 +75,7 @@ class EkgClient(object):
 
         logging.info(f'Retrieving analysis report ID: {analysis_id}')
         response = send_request(send_fn=lambda: requests.get(url, verify=ssl_cafile),
-                                error_message=f'Failed to retrieve EKG analysis report with id: {analysis_id}')
+                                error_message=f'Failed to retrieve EKG analysis report with ID: {analysis_id}')
         response_json: dict = EkgClient.get_response_json(response)
         status = response_json.get('data', {}).get('attributes', {}).get('status')
         if not status:
@@ -103,11 +103,7 @@ class EkgClient(object):
 
     @staticmethod
     def get_response_json(response):
-        try:
-            return response.json()
-        except ValueError as err:
-            raise OperationFailedError(f'Received an invalid response from EKG server; response contained invalid or '
-                                       f'empty json content:\n{response}', err)
+        return get_response_json_util(response, error_message='Received an invalid response from EKG server')
 
 
 class RunEkgAnalysis(RunPythonCommand):

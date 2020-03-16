@@ -102,6 +102,14 @@ def send_request(send_fn: Callable[[], requests.Response], error_message: str) -
         return response
 
 
+def get_response_json(response, error_message):
+    try:
+        return response.json()
+    except ValueError as err:
+        raise OperationFailedError(f'{error_message}; '
+                                   f'response contained invalid or empty json content:\n{response}', err)
+
+
 def typename(o: object):
     """Gets the typename of Python objects"""
     return type(o).__name__
