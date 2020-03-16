@@ -7,7 +7,7 @@ import logging
 
 from testlib.likafka.admin import AdminClient
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()
 
 CREATE_TOPIC_COMMAND = 'create_topic'

@@ -11,7 +11,7 @@ from testlib.brooklin.tool import CREATE_COMMAND, CreateDatastream, DELETE_COMMA
     StopDatastream, UPDATE_COMMAND, UpdateDatastream
 from testlib.core.utils import typename, csv
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()
 
 

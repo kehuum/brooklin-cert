@@ -50,7 +50,7 @@ def main():
     args = parse_args()
 
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
     ekg_client = EkgClient()
     try:

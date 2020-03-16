@@ -20,12 +20,15 @@ class Datastream(object):
     def status(self):
         return self.datastream.get('Status')
 
+    @property
     def is_ready(self):
         return self.status == 'READY'
 
+    @property
     def is_paused(self):
         return self.status == 'PAUSED'
 
+    @property
     def is_stopped(self):
         return self.status == 'STOPPED'
 

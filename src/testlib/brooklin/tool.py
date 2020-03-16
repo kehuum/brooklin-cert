@@ -324,7 +324,7 @@ class CreateDatastream(SimpleDatastreamCommand):
         """Validate datastream exists and its status is READY"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_ready():
+        if not datastream.is_ready:
             raise DatastreamCommandFailedError(f"Datastream {self.args.name} created but its status is: "
                                                f"{datastream.status}")
 
@@ -360,7 +360,7 @@ class UpdateDatastream(SimpleDatastreamCommand):
         """Validate datastream exists and its status is READY"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_ready():
+        if not datastream.is_ready:
             raise DatastreamCommandFailedError(f"Datastream {self.args.name} updated but its status is: "
                                                f"{datastream.status}")
         if self.args.newwhitelist and datastream.whitelist != self.args.newwhitelist:
@@ -379,7 +379,7 @@ class StopDatastream(SimpleDatastreamCommand):
         """Validate datastream still exists and its status is STOPPED"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_stopped():
+        if not datastream.is_stopped:
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not stopped successfully; '
                                                f'its status is: {datastream.status}')
 
@@ -395,7 +395,7 @@ class PauseDatastream(SimpleDatastreamCommand):
         """Validate datastream still exists and its status is PAUSED"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_paused():
+        if not datastream.is_paused:
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not paused successfully; '
                                                f'its status is: {datastream.status}')
 
@@ -411,7 +411,7 @@ class ResumeDatastream(SimpleDatastreamCommand):
         """Validate datastream still exists and its status is READY"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_ready():
+        if not datastream.is_ready:
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not resumed successfully; '
                                                f'its status is: {datastream.status}')
 
@@ -427,6 +427,6 @@ class RestartDatastream(SimpleDatastreamCommand):
         """Validate datastream still exists and its status is READY"""
         get_command = GetDatastream(self.args)
         datastream = get_command.execute()
-        if not datastream.is_ready():
+        if not datastream.is_ready:
             raise DatastreamCommandFailedError(f'Datastream {self.args.name} was not restarted successfully; '
                                                f'its status is: {datastream.status}')
