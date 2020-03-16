@@ -10,6 +10,8 @@ VERBOSE=0
 
 function usage {
     echo "usage: $SCRIPT_NAME [-t hostname] [-v] [-h]"
+    echo "Deploy test scripts and their dependencies to a remote host"
+    echo
     echo "  -t hostname          Specify test driver hostname"
     echo "  -v                   Turn on verbose logging"
     echo "  -h                   Display help"
