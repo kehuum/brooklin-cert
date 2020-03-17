@@ -1,6 +1,13 @@
+import uuid
+
+from abc import abstractmethod
 from collections import namedtuple
 from enum import Enum
-from testlib.core.teststeps import RunPythonCommand
+
+from agent.client.brooklin import XMLRPCBrooklinClient
+from testlib.core.teststeps import RunPythonCommand, TestStep
+from testlib.core.utils import OperationFailedError
+from testlib.range import get_random_host, list_hosts
 
 DeploymentInfo = namedtuple('DeploymentInfo', ['fabric', 'tag'])
 
@@ -48,7 +55,7 @@ class CreateDatastream(RunPythonCommand):
                   f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
                   '--scd kafka.cert.kafka.prod-lva1.atd.prod.linkedin.com:16637 ' \
                   '--dcd kafka.brooklin-cert.kafka.prod-lor1.atd.prod.linkedin.com:16637 ' \
-                  '--applications brooklin-service '
+                  f'--applications brooklin-service --metadata group.id:{uuid.uuid4()} '
 
         if self.topic_create:
             command += ' --topiccreate'
@@ -92,3 +99,108 @@ class RestartDatastream(RunPythonCommand):
                f'-n {self.name} ' \
                f'--cert {self.cert} ' \
                f'-f {self.cluster.fabric} -t {self.cluster.tag}'
+
+
+class GetBrooklinLeaderHost(TestStep):
+    """Test step to get the Brooklin Leader Host"""
+
+    def __init__(self, cluster=ClusterChoice.CONTROL):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid cluster choice: {cluster}')
+
+        self.cluster = cluster.value
+        self.leader_host = None
+
+    def run_test(self):
+        hosts = list_hosts(self.cluster.fabric, self.cluster.tag)
+        leaders = [h for h in hosts if GetBrooklinLeaderHost.is_leader(h)]
+        if len(leaders) != 1:
+            raise OperationFailedError(f'Expected exactly one leader but found: {leaders}')
+        self.leader_host = leaders[0]
+
+    def get_leader_host(self):
+        return self.leader_host
+
+    @staticmethod
+    def is_leader(host):
+        with XMLRPCBrooklinClient(hostname=host) as client:
+            return client.is_brooklin_leader()
+
+
+class ManipulateBrooklinHost(TestStep):
+    """Base class for any test step that manipulates the Brooklin hosts using the Agent
+
+    Extenders are expected to:
+        - Implement the invoke_client_function function to specify the agent client script to run
+    """
+
+    def __init__(self, hostname_getter=None):
+        super().__init__()
+        self.hostname_getter = hostname_getter
+        self.host = None
+
+    def run_test(self):
+        self.host = self.hostname_getter()
+        with XMLRPCBrooklinClient(hostname=self.host) as client:
+            self.invoke_client_function(client)
+
+    def get_host(self):
+        return self.host
+
+    @abstractmethod
+    def invoke_client_function(self, client):
+        pass
+
+
+class StopBrooklinHost(ManipulateBrooklinHost, TestStep):
+    """Test step to stop a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.stop_brooklin()
+
+
+class StopRandomBrooklinHost(StopBrooklinHost, ManipulateBrooklinHost, TestStep):
+    """Test step to stop a random Brooklin host in the cluster"""
+
+    def __init__(self, cluster):
+        super().__init__(hostname_getter=self.get_host)
+        self.cluster = cluster.value
+        self.host = None
+
+    def run_test(self):
+        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
+        super().run_test()
+
+    def get_host(self):
+        return self.host
+
+
+class KillBrooklinHost(ManipulateBrooklinHost, TestStep):
+    """Test step to kill a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.kill_brooklin()
+
+
+class KillRandomBrooklinHost(KillBrooklinHost, ManipulateBrooklinHost, TestStep):
+    """Test step to kill a random Brooklin host in the cluster"""
+
+    def __init__(self, cluster):
+        super().__init__(hostname_getter=self.get_host)
+        self.cluster = cluster.value
+        self.host = None
+
+    def run_test(self):
+        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
+        super().run_test()
+
+    def get_host(self):
+        return self.host
+
+
+class StartBrooklinHost(ManipulateBrooklinHost, TestStep):
+    """Test step to start a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.start_brooklin()

@@ -1,3 +1,4 @@
+import random
 import requests
 
 from testlib.core.utils import OperationFailedError
@@ -17,3 +18,10 @@ def list_hosts(fabric, tag):
             raise OperationFailedError(f'Received a response with unsuccessful status code from range server: '
                                        f'{status_code}')
         return response.text.splitlines()
+
+
+def get_random_host(fabric, tag):
+    """Returns a randomly selected host from all the hosts that match the specified fabric and tag"""
+
+    hosts = list_hosts(fabric, tag)
+    return random.choice(hosts)
