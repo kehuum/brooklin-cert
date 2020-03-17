@@ -2,6 +2,7 @@ import json
 import subprocess
 
 from abc import ABC, abstractmethod
+from testlib.core.utils import typename
 from testlib.brooklin.datastream import Datastream
 
 BASE_TOOL_COMMAND = 'brooklin-tool datastream'
