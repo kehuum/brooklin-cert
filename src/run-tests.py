@@ -4,7 +4,8 @@ import logging
 import unittest
 
 from testlib.brooklin.teststeps import CreateDatastream, ClusterChoice, RestartDatastream, KillBrooklinHost, \
-    StartBrooklinHost, StopBrooklinHost, GetBrooklinLeaderHost, KillRandomBrooklinHost, StopRandomBrooklinHost
+    StartBrooklinHost, StopBrooklinHost, GetBrooklinLeaderHost, KillRandomBrooklinHost, StopRandomBrooklinHost, \
+    PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
 from testlib.core.runner import TestRunner
@@ -75,6 +76,16 @@ class BrooklinErrorInducingTests(unittest.TestCase):
     def test_stop_leader_brooklin_host(self):
         test_steps = BrooklinErrorInducingTests.stop_brooklin_host("test_stop_leader_brooklin_host", True)
         self.assertTrue(TestRunner('test_stop_leader_brooklin_host').run(*test_steps))
+
+    def test_pause_resume_random_brooklin_host(self):
+        test_steps = BrooklinErrorInducingTests.pause_resume_brooklin_host("test_pause_resume_random_brooklin_host",
+                                                                           False)
+        self.assertTrue(TestRunner('test_pause_resume_random_brooklin_host').run(*test_steps))
+
+    def test_pause_resume_leader_brooklin_host(self):
+        test_steps = BrooklinErrorInducingTests.pause_resume_brooklin_host("test_pause_resume_leader_brooklin_host",
+                                                                           True)
+        self.assertTrue(TestRunner('test_pause_resume_leader_brooklin_host').run(*test_steps))
 
     @staticmethod
     def kill_brooklin_host(datastream_name, is_leader):
@@ -160,6 +171,54 @@ class BrooklinErrorInducingTests(unittest.TestCase):
         test_steps.append(StartBrooklinHost(host_getter))
 
         # TODO: Add a step for starting the Brooklin host in the experiment cluster
+
+        sleep_after_start = Sleep(secs=60 * 10)
+        test_steps.append(sleep_after_start)
+        test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
+                                        endtime_getter=sleep_after_start.end_time))
+
+        # TODO: Add a step for running audit on the experiment data-flow
+
+        test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
+                                         endtime_getter=sleep_after_start.end_time))
+        return test_steps
+
+    @staticmethod
+    def pause_resume_brooklin_host(datastream_name, is_leader):
+        test_steps = []
+        control_datastream = CreateDatastream(cluster=ClusterChoice.CONTROL, name=datastream_name, topic_create=True,
+                                              identity=False, passthrough=False, partition_managed=True)
+        test_steps.append(control_datastream)
+
+        # TODO: Add a step for creating experiment datastream
+
+        sleep_before_stop = Sleep(secs=60 * 10)
+        test_steps.append(sleep_before_stop)
+
+        if is_leader:
+            find_leader_host = GetBrooklinLeaderHost(cluster=ClusterChoice.CONTROL)
+            test_steps.append(find_leader_host)
+
+            # TODO: Add a step for finding the leader Brooklin host in the experiment cluster
+
+            pause_brooklin_host = PauseBrooklinHost(hostname_getter=find_leader_host.get_leader_host)
+            test_steps.append(pause_brooklin_host)
+
+            # TODO: Add a step for pausing the leader Brooklin host in the experiment cluster
+
+            host_getter = find_leader_host.get_leader_host
+        else:
+            pause_brooklin_host = PauseRandomBrooklinHost(cluster=ClusterChoice.CONTROL)
+            test_steps.append(pause_brooklin_host)
+
+            # TODO: Add a step for pausing the Brooklin host in the experiment cluster
+
+            host_getter = pause_brooklin_host.get_host
+
+        test_steps.append(Sleep(secs=60))
+        test_steps.append(ResumeBrooklinHost(host_getter))
+
+        # TODO: Add a step for resuming the Brooklin host in the experiment cluster
 
         sleep_after_start = Sleep(secs=60 * 10)
         test_steps.append(sleep_after_start)

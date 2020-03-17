@@ -153,14 +153,14 @@ class ManipulateBrooklinHost(TestStep):
         pass
 
 
-class StopBrooklinHost(ManipulateBrooklinHost, TestStep):
+class StopBrooklinHost(ManipulateBrooklinHost):
     """Test step to stop a Brooklin host"""
 
     def invoke_client_function(self, client):
         client.stop_brooklin()
 
 
-class StopRandomBrooklinHost(StopBrooklinHost, ManipulateBrooklinHost, TestStep):
+class StopRandomBrooklinHost(StopBrooklinHost):
     """Test step to stop a random Brooklin host in the cluster"""
 
     def __init__(self, cluster):
@@ -176,14 +176,14 @@ class StopRandomBrooklinHost(StopBrooklinHost, ManipulateBrooklinHost, TestStep)
         return self.host
 
 
-class KillBrooklinHost(ManipulateBrooklinHost, TestStep):
+class KillBrooklinHost(ManipulateBrooklinHost):
     """Test step to kill a Brooklin host"""
 
     def invoke_client_function(self, client):
         client.kill_brooklin()
 
 
-class KillRandomBrooklinHost(KillBrooklinHost, ManipulateBrooklinHost, TestStep):
+class KillRandomBrooklinHost(KillBrooklinHost):
     """Test step to kill a random Brooklin host in the cluster"""
 
     def __init__(self, cluster):
@@ -199,8 +199,38 @@ class KillRandomBrooklinHost(KillBrooklinHost, ManipulateBrooklinHost, TestStep)
         return self.host
 
 
-class StartBrooklinHost(ManipulateBrooklinHost, TestStep):
+class StartBrooklinHost(ManipulateBrooklinHost):
     """Test step to start a Brooklin host"""
 
     def invoke_client_function(self, client):
         client.start_brooklin()
+
+
+class PauseBrooklinHost(ManipulateBrooklinHost):
+    """Test step to pause the Brooklin process on a host"""
+
+    def invoke_client_function(self, client):
+        client.pause_brooklin()
+
+
+class PauseRandomBrooklinHost(PauseBrooklinHost):
+    """Test step to pause the Brooklin process on a random host in the cluster"""
+
+    def __init__(self, cluster):
+        super().__init__(hostname_getter=self.get_host)
+        self.cluster = cluster.value
+        self.host = None
+
+    def run_test(self):
+        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
+        super().run_test()
+
+    def get_host(self):
+        return self.host
+
+
+class ResumeBrooklinHost(ManipulateBrooklinHost):
+    """Test step to resume the Brooklin process on a host"""
+
+    def invoke_client_function(self, client):
+        client.resume_brooklin()
