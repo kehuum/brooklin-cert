@@ -1,23 +1,16 @@
 import random
 import requests
 
-from testlib.core.utils import OperationFailedError
+from testlib.core.utils import send_request
 
 
 def list_hosts(fabric, tag):
     """Retrieves the list of hostnames that match the specified fabric and tag"""
 
     url = f'http://range.corp.linkedin.com/range/list?%{fabric}.tag_hosts:{tag}'
-    try:
-        response = requests.get(url)
-    except requests.exceptions.RequestException as err:
-        raise OperationFailedError('Encountered an error issuing a request to range server', err)
-    else:
-        status_code = response.status_code
-        if status_code != requests.codes.ok:
-            raise OperationFailedError(f'Received a response with unsuccessful status code from range server: '
-                                       f'{status_code}')
-        return response.text.splitlines()
+    response = send_request(send_fn=lambda: requests.get(url),
+                            error_message='Failed to retrieve host list from Range server')
+    return response.text.splitlines()
 
 
 def get_random_host(fabric, tag):
