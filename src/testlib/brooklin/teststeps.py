@@ -133,6 +133,7 @@ class ManipulateBrooklinHost(TestStep):
 
     Extenders are expected to:
         - Implement the invoke_client_function function to specify the agent client script to run
+        - Implement the invoke_client_cleanup_function function if any cleanup steps are required
     """
 
     def __init__(self, hostname_getter=None):
@@ -145,11 +146,19 @@ class ManipulateBrooklinHost(TestStep):
         with XMLRPCBrooklinClient(hostname=self.host) as client:
             self.invoke_client_function(client)
 
+    def cleanup(self):
+        self.host = self.hostname_getter()
+        with XMLRPCBrooklinClient(hostname=self.host) as client:
+            self.invoke_client_cleanup_function(client)
+
     def get_host(self):
         return self.host
 
     @abstractmethod
     def invoke_client_function(self, client):
+        pass
+
+    def invoke_client_cleanup_function(self, client):
         pass
 
 
@@ -158,6 +167,9 @@ class StopBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.stop_brooklin()
+
+    def invoke_client_cleanup_function(self, client):
+        client.start_brooklin()
 
 
 class StopRandomBrooklinHost(StopBrooklinHost):
@@ -181,6 +193,9 @@ class KillBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.kill_brooklin()
+
+    def invoke_client_cleanup_function(self, client):
+        client.start_brooklin()
 
 
 class KillRandomBrooklinHost(KillBrooklinHost):
@@ -211,6 +226,9 @@ class PauseBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.pause_brooklin()
+
+    def invoke_client_cleanup_function(self, client):
+        client.resume_brooklin()
 
 
 class PauseRandomBrooklinHost(PauseBrooklinHost):
