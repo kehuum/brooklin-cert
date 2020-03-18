@@ -3,12 +3,13 @@
 import logging
 import unittest
 
-from testlib.brooklin.teststeps import CreateDatastream, ClusterChoice, RestartDatastream
+from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream
 from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host
 from testlib.core.runner import TestRunner
 from testlib.core.teststeps import Sleep
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.teststeps import RunKafkaAudit
+from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker
+from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice
 
 logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
@@ -18,8 +19,9 @@ class BasicTests(unittest.TestCase):
 
     def test_basic(self):
         datastream_name = 'test_basic'
-        control_datastream = CreateDatastream(cluster=ClusterChoice.CONTROL, name=datastream_name, topic_create=True,
-                                              identity=False, passthrough=False, partition_managed=True)
+        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
+                                              topic_create=True, identity=False, passthrough=False,
+                                              partition_managed=True)
 
         # TODO: Add a step for creating experiment datastream
 
@@ -33,14 +35,14 @@ class BasicTests(unittest.TestCase):
 
     def test_restart_datastream(self):
         datastream_name = 'test-restart-datastream'
-        control_datastream = CreateDatastream(cluster=ClusterChoice.CONTROL, name=datastream_name,
+        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
                                               topic_create=True, identity=False, passthrough=False,
                                               partition_managed=True)
 
         # TODO: Add a step for creating experiment datastream
 
         sleep_before_restart = Sleep(secs=60 * 10)
-        restart_datastream = RestartDatastream(cluster=ClusterChoice.CONTROL, name=datastream_name)
+        restart_datastream = RestartDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name)
 
         # TODO: Add a step for restarting experiment datastream
 
@@ -61,28 +63,48 @@ class BrooklinErrorInducingTests(unittest.TestCase):
     """All Brooklin error-inducing certification tests"""
 
     def test_kill_random_brooklin_host(self):
-        test_steps = kill_brooklin_host("test_kill_random_brooklin_host", False)
+        test_steps = kill_brooklin_host('test_kill_random_brooklin_host', False)
         self.assertTrue(TestRunner('test_kill_random_brooklin_host').run(*test_steps))
 
     def test_kill_leader_brooklin_host(self):
-        test_steps = kill_brooklin_host("test_kill_leader_brooklin_host", True)
+        test_steps = kill_brooklin_host('test_kill_leader_brooklin_host', True)
         self.assertTrue(TestRunner('test_kill_leader_brooklin_host').run(*test_steps))
 
     def test_stop_random_brooklin_host(self):
-        test_steps = stop_brooklin_host("test_stop_random_brooklin_host", False)
+        test_steps = stop_brooklin_host('test_stop_random_brooklin_host', False)
         self.assertTrue(TestRunner('test_stop_random_brooklin_host').run(*test_steps))
 
     def test_stop_leader_brooklin_host(self):
-        test_steps = stop_brooklin_host("test_stop_leader_brooklin_host", True)
+        test_steps = stop_brooklin_host('test_stop_leader_brooklin_host', True)
         self.assertTrue(TestRunner('test_stop_leader_brooklin_host').run(*test_steps))
 
     def test_pause_resume_random_brooklin_host(self):
-        test_steps = pause_resume_brooklin_host("test_pause_resume_random_brooklin_host", False)
+        test_steps = pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False)
         self.assertTrue(TestRunner('test_pause_resume_random_brooklin_host').run(*test_steps))
 
     def test_pause_resume_leader_brooklin_host(self):
-        test_steps = pause_resume_brooklin_host("test_pause_resume_leader_brooklin_host", True)
+        test_steps = pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True)
         self.assertTrue(TestRunner('test_pause_resume_leader_brooklin_host').run(*test_steps))
+
+
+class KafkaErrorInducingTests(unittest.TestCase):
+    """All Kafka error-inducing certification tests"""
+
+    def test_kill_random_source_kafka_broker(self):
+        test_steps = kill_kafka_broker('test_kill_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
+        self.assertTrue(TestRunner('test_kill_random_source_kafka_broker').run(*test_steps))
+
+    def test_kill_random_destination_kafka_broker(self):
+        test_steps = kill_kafka_broker('test_kill_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
+        self.assertTrue(TestRunner('test_kill_random_destination_kafka_broker').run(*test_steps))
+
+    def test_stop_random_source_kafka_broker(self):
+        test_steps = stop_kafka_broker('test_stop_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
+        self.assertTrue(TestRunner('test_stop_random_source_kafka_broker').run(*test_steps))
+
+    def test_stop_random_destination_kafka_broker(self):
+        test_steps = stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
+        self.assertTrue(TestRunner('test_stop_random_destination_kafka_broker').run(*test_steps))
 
 
 if __name__ == '__main__':

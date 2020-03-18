@@ -1,20 +1,17 @@
 import uuid
 
 from abc import abstractmethod
-from collections import namedtuple
 from enum import Enum
 
 from agent.client.brooklin import XMLRPCBrooklinClient
-from testlib.core.teststeps import RunPythonCommand, TestStep
+from testlib.core.teststeps import RunPythonCommand, TestStep, DeploymentInfo
 from testlib.core.utils import OperationFailedError
 from testlib.range import get_random_host, list_hosts
-
-DeploymentInfo = namedtuple('DeploymentInfo', ['fabric', 'tag'])
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 
 
-class ClusterChoice(Enum):
+class BrooklinClusterChoice(Enum):
     CONTROL = DeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.control')
     EXPERIMENT = DeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.candidate')
 
@@ -22,9 +19,9 @@ class ClusterChoice(Enum):
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
-    def __init__(self, cluster=ClusterChoice.CONTROL, name='basic-mirroring-datastream', whitelist='^voyager-api.*',
-                 num_tasks=8, topic_create=True, identity=False, passthrough=False, partition_managed=True,
-                 cert='identity.p12'):
+    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='basic-mirroring-datastream',
+                 whitelist='^voyager-api.*',  num_tasks=8, topic_create=True, identity=False, passthrough=False,
+                 partition_managed=True, cert='identity.p12'):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')
@@ -80,7 +77,7 @@ class CreateDatastream(RunPythonCommand):
 class RestartDatastream(RunPythonCommand):
     """Test step for restarting a datastream"""
 
-    def __init__(self, cluster=ClusterChoice.CONTROL, name='test-restart-datastream', cert='identity.p12'):
+    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='test-restart-datastream', cert='identity.p12'):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')
@@ -104,7 +101,7 @@ class RestartDatastream(RunPythonCommand):
 class GetBrooklinLeaderHost(TestStep):
     """Test step to get the Brooklin Leader Host"""
 
-    def __init__(self, cluster=ClusterChoice.CONTROL):
+    def __init__(self, cluster=BrooklinClusterChoice.CONTROL):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')

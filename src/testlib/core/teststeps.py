@@ -3,6 +3,9 @@ import subprocess
 import time
 
 from abc import ABC, abstractmethod
+from collections import namedtuple
+
+DeploymentInfo = namedtuple('DeploymentInfo', ['fabric', 'tag'])
 
 
 class TestStep(ABC):
