@@ -4,11 +4,7 @@ This repository is intended for hosting Brooklin test automation code.
 ### Setup instructions
 1. Install Python 3.7
 
-    - For macOS, you can download the latest 3.7.x installer from the [Python releases page](https://www.python.org/downloads/mac-osx/). It typically installs to the following location on disk:
-        ```shell script
-        /Library/Frameworks/Python.framework/Versions/3.7/bin/python3
-        ```
-    - For Linux, you can use yum. Here's how you can check if you already have it.
+    - For Linux, you can use `yum`. Here's how you can check if you already have it.
         ```shell script
         yum list installed | grep LNKD-python
         ```
@@ -17,6 +13,10 @@ This repository is intended for hosting Brooklin test automation code.
         ```shell script
         # Replace LNKD-python37_3_7_0.x86_64 with the one of interest
         rpm -ql LNKD-python37_3_7_0.x86_64
+        ```
+    - For macOS, you can download the latest 3.7.x installer from the [Python releases page](https://www.python.org/downloads/mac-osx/). It typically installs to the following location on disk:
+        ```shell script
+        /Library/Frameworks/Python.framework/Versions/3.7/bin/python3
         ```
 
 2. Install `pipenv`
@@ -30,26 +30,37 @@ This repository is intended for hosting Brooklin test automation code.
     sudo /Library/Frameworks/Python.framework/Versions/3.7/bin/python3 -m pip install pipenv
     ```
 
-3. Clone the repo 
+3. Upload your LinkedIn SSH keys to GitHub if you haven't done that before. Instructions for doing so can be found on [this page](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
+
+4. Clone the repo 
    ```shell script
-   USER=username # replace with your GitHub username
-   git clone git@github.com:$USER/brooklin-certification.git
+   git clone git@github.com:ahmedahamid/brooklin-certification.git
    ```
 
-4. Open the repo using IntelliJ
+5. Open the repo using IntelliJ
    - Import Project
    - Create project from existing sources
    - Open any of the Python files and click IntelliJ's tips regarding using Pipenv and installing dependencies
    
-5. If you want to invoke pipenv on the command-line, you can use the following command to initialize your virtual 
-environment:
+6. Initialize your virtual environment using `pipenv`
    ```shell script
    # on Linux
-   pipenv install --python /export/apps/python/3.7/bin/python3
+   /export/apps/python/3.7/bin/python3 -m pipenv install --python /export/apps/python/3.7/bin/python3
    
    # on macOS
-   pipenv install --python /Library/Frameworks/Python.framework/Versions/3.7/bin/python3
+   /Library/Frameworks/Python.framework/Versions/3.7/bin/python3 -m pipenv install --python /Library/Frameworks/Python.framework/Versions/3.7/bin/python3
    ```
+
+7. Activate your virtual environment
+    ```shell script
+    # on Linux
+    /export/apps/python/3.7/bin/python3 -m pipenv shell
+    python src/run-tests.py -h
+
+    # on macOS
+    /Library/Frameworks/Python.framework/Versions/3.7/bin/python3 -m pipenv shell
+    python src/run-tests.py -h
+    ```
    
 ### Packaging scripts
 
