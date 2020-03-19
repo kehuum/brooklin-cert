@@ -2,8 +2,7 @@
 
 import os
 import argparse
-import string
-import random
+import time
 
 from multiprocessing import Process
 from kafka import KafkaProducer
@@ -40,6 +39,10 @@ def parse_args():
     return args
 
 
+def get_current_time():
+    return time.strftime("%H:%M:%S", time.localtime())
+
+
 def run_single_producer(bootstrap_server, topic, message_count, message_size, ssl_certfile, ssl_cafile):
     producer = KafkaProducer(bootstrap_servers=[bootstrap_server],
                              acks=0,
@@ -49,10 +52,10 @@ def run_single_producer(bootstrap_server, topic, message_count, message_size, ss
                              ssl_certfile=ssl_certfile,
                              ssl_keyfile=ssl_certfile)
     for i in range(message_count):
-        message = ''.join(random.choices(string.ascii_uppercase + string.digits, k=message_size))
-        producer.send(topic=topic, value=str.encode(message))
+        message = os.urandom(message_size)
+        producer.send(topic=topic, value=message)
         if i > 0 and i % 1000 == 0:
-            print(f"[{os.getpid()}] produced {i} messages")
+            print(f"[{os.getpid()}] {get_current_time()} produced {i} messages")
 
 
 def run_producers(bootstrap_server, topic, num_messages, message_size, num_producers, ssl_certfile, ssl_cafile):
