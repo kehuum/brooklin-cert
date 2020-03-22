@@ -1,19 +1,23 @@
 import uuid
 
 from abc import abstractmethod
+from collections import namedtuple
 from enum import Enum
 
 from agent.client.brooklin import XMLRPCBrooklinClient
-from testlib.core.teststeps import RunPythonCommand, TestStep, DeploymentInfo
+from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
+from testlib.likafka.teststeps import KafkaClusterChoice
 from testlib.range import get_random_host, list_hosts
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 
+BrooklinDeploymentInfo = namedtuple('BrooklinDeploymentInfo', ['fabric', 'tag'])
+
 
 class BrooklinClusterChoice(Enum):
-    CONTROL = DeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.control')
-    EXPERIMENT = DeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.candidate')
+    CONTROL = BrooklinDeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.control')
+    EXPERIMENT = BrooklinDeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.candidate')
 
 
 class CreateDatastream(RunPythonCommand):
@@ -46,12 +50,12 @@ class CreateDatastream(RunPythonCommand):
     def main_command(self):
         command = f'{DATASTREAM_CRUD_SCRIPT} create ' \
                   f'-n {self.name} ' \
-                  f'--whitelist {self.whitelist} ' \
+                  f'--whitelist "{self.whitelist}" ' \
                   f'--numtasks {self.num_tasks} ' \
                   f'--cert {self.cert} ' \
                   f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
-                  '--scd kafka.cert.kafka.prod-lva1.atd.prod.linkedin.com:16637 ' \
-                  '--dcd kafka.brooklin-cert.kafka.prod-lor1.atd.prod.linkedin.com:16637 ' \
+                  f'--scd {KafkaClusterChoice.SOURCE.value.bootstrap_servers} ' \
+                  f'--dcd {KafkaClusterChoice.DESTINATION.value.bootstrap_servers} ' \
                   f'--applications brooklin-service --metadata group.id:{uuid.uuid4()} '
 
         if self.topic_create:
@@ -96,6 +100,44 @@ class RestartDatastream(RunPythonCommand):
                f'-n {self.name} ' \
                f'--cert {self.cert} ' \
                f'-f {self.cluster.fabric} -t {self.cluster.tag}'
+
+
+class UpdateDatastream(RunPythonCommand):
+    """Test step for updating an existing datastream"""
+
+    def __init__(self, whitelist, metadata, name, cluster=BrooklinClusterChoice.CONTROL,
+                 cert='identity.p12'):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid cluster choice: {cluster}')
+        if not name:
+            raise ValueError(f'Invalid name: {name}')
+        if not cert:
+            raise ValueError(f'Invalid cert: {cert}')
+        if not metadata:
+            raise ValueError(f'At least one metadata property must be specified: {metadata}')
+
+        self.cluster = cluster.value
+        self.name = name
+        self.cert = cert
+        self.metadata = metadata
+        self.whitelist = whitelist
+
+    @property
+    def main_command(self):
+        command = f'{DATASTREAM_CRUD_SCRIPT} update ' \
+                         f'-n {self.name} ' \
+                         f'--cert {self.cert} ' \
+                         f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
+                         f'--force --restart '
+
+        for metadata in self.metadata:
+            command += f'--metadata {metadata} '
+
+        if self.whitelist:
+            command += f'--newwhitelist "{self.whitelist}" '
+
+        return command
 
 
 class GetBrooklinLeaderHost(TestStep):

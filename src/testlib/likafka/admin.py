@@ -11,15 +11,15 @@ class AdminClient(object):
         self.admin_client = self.create_admin_client(bootstrap_servers, cert_file, key_file)
 
     @staticmethod
-    def create_admin_client(bootstrap_servers, cert_file, key_file):
+    def create_admin_client(bootstrap_servers, ssl_certfile, ssl_keyfile):
         logging.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, cert file:'
-                      f' {cert_file}, key file: {key_file}')
+                      f' {ssl_certfile}, key file: {ssl_keyfile}')
         return KafkaAdminClient(bootstrap_servers=bootstrap_servers,
                                 security_protocol='SSL',
                                 ssl_check_hostname=False,
                                 ssl_cafile=DEFAULT_CA_FILE,
-                                ssl_certfile=cert_file,
-                                ssl_keyfile=key_file)
+                                ssl_certfile=ssl_certfile,
+                                ssl_keyfile=ssl_keyfile)
 
     def create_topic(self, name, partitions, replication_factor, topic_configs):
         config_dict = dict()

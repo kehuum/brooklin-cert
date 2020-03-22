@@ -41,7 +41,7 @@ class BrooklinToolCommandBuilder(object):
                          f'-f {args.fabric} ' \
                          f'--tag {args.tag} ' \
                          f'-n {args.name} ' \
-                         f'--whitelist {args.whitelist} ' \
+                         f'--whitelist "{args.whitelist}" ' \
                          f'--source-cluster-dns {args.src_cluster_dns} ' \
                          f'--destination-cluster-dns {args.dest_cluster_dns} ' \
                          f'--jira {args.jira} ' \
@@ -105,7 +105,7 @@ class BrooklinToolCommandBuilder(object):
         if args.force:
             update_command += f'--force '
         if args.newwhitelist:
-            update_command += f'--new-whitelist {args.newwhitelist} '
+            update_command += f'--new-whitelist "{args.newwhitelist}" '
         if args.restart:
             update_command += f'--restart '
         if args.wait:

@@ -5,7 +5,7 @@ import requests
 
 from collections import namedtuple
 from enum import Enum
-from testlib import DEFAULT_CA_FILE, DEFAULT_CERT_FILE
+from testlib import DEFAULT_CA_FILE, DEFAULT_SSL_CERTFILE
 from testlib.core.utils import retry, send_request, get_response_json as get_response_json_util, OperationFailedError
 
 FabricInfo = namedtuple('FabricInfo', ['fabric', 'environment'])
@@ -53,7 +53,7 @@ class DeploymentRequest(object):
 class LidClient(object):
     """Client capable of submitting deployment requests to LID server"""
 
-    def __init__(self, ssl_certfile=DEFAULT_CERT_FILE, ssl_cafile=DEFAULT_CA_FILE):
+    def __init__(self, ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_cafile=DEFAULT_CA_FILE):
         self.ssl_certfile = ssl_certfile
         self.ssl_cafile = ssl_cafile
 

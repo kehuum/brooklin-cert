@@ -1,14 +1,23 @@
 from abc import abstractmethod
+from collections import namedtuple
 from enum import Enum
 
 from agent.client.kafka import XMLRPCKafkaClient
-from testlib.core.teststeps import RunPythonCommand, TestStep, DeploymentInfo
+from testlib import DEFAULT_SSL_CERTFILE
+from testlib.core.teststeps import RunPythonCommand, TestStep
+from testlib.core.utils import OperationFailedError
+from testlib.likafka.admin import AdminClient
 from testlib.range import get_random_host
+
+KafkaDeploymentInfo = namedtuple('KafkaDeploymentInfo', ['fabric', 'tag', 'bootstrap_servers'])
 
 
 class KafkaClusterChoice(Enum):
-    SOURCE = DeploymentInfo(fabric='prod-lva1', tag='kafka.cert')
-    DESTINATION = DeploymentInfo(fabric='prod-lor1', tag='kafka.brooklin-cert')
+    SOURCE = KafkaDeploymentInfo(fabric='prod-lva1', tag='kafka.cert',
+                                 bootstrap_servers='kafka.cert.kafka.prod-lva1.atd.prod.linkedin.com:16637')
+    DESTINATION = \
+        KafkaDeploymentInfo(fabric='prod-lor1', tag='kafka.brooklin-cert',
+                            bootstrap_servers='kafka.brooklin-cert.kafka.prod-lor1.atd.prod.linkedin.com:16637')
 
 
 class RunKafkaAudit(RunPythonCommand):
@@ -42,8 +51,11 @@ class ManipulateKafkaHost(TestStep):
         - Implement the invoke_client_cleanup_function function if any cleanup steps are required
     """
 
-    def __init__(self, hostname_getter=None):
+    def __init__(self, hostname_getter):
         super().__init__()
+        if not hostname_getter:
+            raise ValueError(f'Invalid hostname getter provided: {hostname_getter}')
+
         self.hostname_getter = hostname_getter
         self.host = None
 
@@ -117,3 +129,110 @@ class StartKafkaHost(ManipulateKafkaHost):
 
     def invoke_client_function(self, client):
         client.start_kafka()
+
+
+class ValidateSourceAndDestinationTopicsMatch(TestStep):
+    """Test step to compare source and destination Kafka topic lists"""
+
+    def __init__(self, source_topics_getter, destination_topics_getter):
+        super().__init__()
+        if not source_topics_getter or not destination_topics_getter:
+            raise ValueError('Both source and destination listed topics getter must be provided')
+
+        self.source_topics_getter = source_topics_getter
+        self.destination_topics_getter = destination_topics_getter
+
+    def run_test(self):
+        source_topic_set = set(self.source_topics_getter())
+        destination_topic_set = set(self.destination_topics_getter())
+
+        if not source_topic_set.issubset(destination_topic_set):
+            raise OperationFailedError(f'One or more source topics are not present in the destination: '
+                                       f'{", ".join(source_topic_set.difference(destination_topic_set))}')
+
+
+class ValidateTopicsDoNotExist(TestStep):
+    """Test step to validate that a list of topics do not exist"""
+
+    def __init__(self, topics_getter, cluster=KafkaClusterChoice.DESTINATION, ssl_certfile=DEFAULT_SSL_CERTFILE,
+                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topics_getter:
+            raise ValueError(f'Invalid deleted topics getter: {topics_getter}')
+        if not cluster:
+            raise ValueError(f'Invalid cluster: {cluster}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_keyfile:
+            raise ValueError(f'Key file must be specified')
+
+        self.topics_getter = topics_getter
+        self.cluster = cluster.value
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
+
+    def run_test(self):
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        current_topics_set = set(client.list_topics())
+        deleted_topics_set = set(self.topics_getter())
+
+        if not deleted_topics_set.isdisjoint(current_topics_set):
+            raise OperationFailedError(f'Found unexpected topics in Kafka cluster {self.cluster}: '
+                                       f'{", ".join(deleted_topics_set.intersection(current_topics_set))}')
+
+
+class ListTopics(TestStep):
+    """Test step for listing topics in a Kafka cluster, optionally filtered by a topic prefix"""
+
+    def __init__(self, bootstrap_servers, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE,
+                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not bootstrap_servers:
+            raise ValueError(f'Invalid bootstrap_servers: {bootstrap_servers}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_keyfile:
+            raise ValueError(f'Key file must be specified')
+
+        self.bootstrap_servers = bootstrap_servers
+        self.topic_prefix_filter = topic_prefix_filter
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
+        self.topics = None
+
+    def run_test(self):
+        client = AdminClient(self.bootstrap_servers, self.ssl_certfile, self.ssl_keyfile)
+        self.topics = [t for t in client.list_topics() if t.startswith(self.topic_prefix_filter)]
+
+    def get_listed_topics(self):
+        return self.topics
+
+
+class DeleteTopics(TestStep):
+    """Test step to delete a list of topics in a Kafka cluster"""
+
+    def __init__(self, topics_getter, bootstrap_servers, ssl_certfile=DEFAULT_SSL_CERTFILE,
+                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topics_getter:
+            raise ValueError(f'Invalid topic topics getter: {topics_getter}')
+        if not bootstrap_servers:
+            raise ValueError(f'Invalid bootstrap_servers: {bootstrap_servers}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_keyfile:
+            raise ValueError(f'Key file must be specified')
+
+        self.topics_getter = topics_getter
+        self.bootstrap_servers = bootstrap_servers
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
+
+    def run_test(self):
+        client = AdminClient(self.bootstrap_servers, self.ssl_certfile, self.ssl_keyfile)
+        topics_to_delete = self.topics_getter()
+
+        # Deleting a single topic at a time because bulk topic deletion needs much longer timeout and may lead
+        # to some flakiness
+        for topic in topics_to_delete:
+            client.delete_topic(topic)

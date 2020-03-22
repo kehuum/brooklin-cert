@@ -30,8 +30,9 @@ def parse_args():
                                  help='Bootstrap server to be used to create the Kafka AdminClient. Must be in the'
                                       ' format of HOSTNAME:PORT. This can be repeated to specify multiple bootstrap'
                                       ' servers')
-    required_common.add_argument('--cf', dest='cert_file', help='Kafka AdminClient cert file full path', required=True)
-    required_common.add_argument('--kf', dest='key_file', help='Kafka AdminClient key file full path', required=True)
+    required_common.add_argument('--cf', dest='ssl_certfile', help='Kafka AdminClient cert file full path',
+                                 required=True)
+    required_common.add_argument('--kf', dest='ssl_keyfile', help='Kafka AdminClient key file full path', required=True)
 
     # Choose CRUD command to run with relevant details
     subcommands = parser.add_subparsers(help='Help for supported commands')
@@ -108,7 +109,7 @@ def main():
         LIST_TOPICS_COMMAND: list_topics
     }
 
-    admin_client = AdminClient(args.bootstrap_servers, args.cert_file, args.key_file)
+    admin_client = AdminClient(args.bootstrap_servers, args.ssl_certfile, args.ssl_keyfile)
     run_command_fn = commands[args.cmd]
     run_command_fn(admin_client, args)
 

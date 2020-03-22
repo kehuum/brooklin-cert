@@ -2,7 +2,7 @@ import argparse
 import logging
 import sys
 
-from testlib import DEFAULT_CERT_FILE, DEFAULT_CA_FILE
+from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_CA_FILE
 from testlib.core.utils import OperationFailedError
 from testlib.lid import LidClient
 
@@ -30,8 +30,8 @@ def parse_args():
     # optional arguments
     parser.add_argument('--hc', dest='host_concurrency', type=percentage, default='10%',
                         help='Host concurrency percentage (default = 10%%)')
-    parser.add_argument('--cert', dest='ssl_certfile', default=DEFAULT_CERT_FILE,
-                        help=f'SSL certificate file path (PEM format) (default = {DEFAULT_CERT_FILE})')
+    parser.add_argument('--cert', dest='ssl_certfile', default=DEFAULT_SSL_CERTFILE,
+                        help=f'SSL certificate file path (PEM format) (default = {DEFAULT_SSL_CERTFILE})')
     parser.add_argument('--ca', dest='ssl_cafile', default=DEFAULT_CA_FILE,
                         help=f'SSL certificate authority file path (default = {DEFAULT_CA_FILE})')
 
