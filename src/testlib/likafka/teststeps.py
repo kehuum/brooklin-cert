@@ -14,7 +14,7 @@ class KafkaClusterChoice(Enum):
 class RunKafkaAudit(RunPythonCommand):
     """Test step for running Kafka audit"""
 
-    def __init__(self, starttime_getter, endtime_getter, topics_file='data/topics.txt'):
+    def __init__(self, starttime_getter, endtime_getter, topics_file='data/voyager-topics.txt'):
         super().__init__()
         if not topics_file:
             raise ValueError(f'Invalid topics file: {topics_file}')
