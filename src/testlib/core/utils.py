@@ -5,6 +5,7 @@ import math
 import requests
 
 from typing import Callable, Any
+from functools import wraps
 
 
 class OperationFailedError(Exception):
@@ -60,21 +61,73 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
         raise ValueError("delay must be greater than 0")
 
     def deco_retry(f):
+        @wraps(f)
         def f_retry(*args, **kwargs):
-            _tries, _delay = tries, delay  # make mutable
+            nonlocal tries
+            nonlocal delay
 
-            while _tries > 0:
+            while tries > 0:
                 result = f(*args, **kwargs)
                 if predicate(result):
                     return result  # function succeeded
-                _tries -= 1  # consume an attempt
-                if _tries > 0:
-                    time.sleep(_delay)  # wait...
-                    _delay *= backoff  # make future wait longer
+                tries -= 1  # consume an attempt
+                if tries > 0:
+                    time.sleep(delay)  # wait...
+                    delay *= backoff  # make future wait longer
 
         return f_retry  # true decorator -> decorated function
 
     return deco_retry  # @retry(arg[, ...]) -> true decorator
+
+
+def rate_limit(max_limit, seconds):
+    """Limits the rate at which a function is called.
+
+    For instance, it can be used to cap the number of times a function can be called at 10
+    times every 60 seconds. If the decorated function is called more frequently than the
+    maximum limit, the call is delayed.
+
+    Args:
+        - max_limit:    the maximum number of times to allow calling the decorated function
+                        in a time duration whose length is equal to the seconds parameter
+        - seconds:      the time duration (in seconds) during which the number of calls
+                        of the decorated function is limited
+    """
+    if max_limit <= 0:
+        raise ValueError('max_limit must be greater than zero')
+    if seconds <= 0:
+        raise ValueError('duration must be greater than zero')
+
+    call_count = 0
+    first_call_time = None
+
+    def deco_rate_limit(f):
+        @wraps(f)
+        def f_rate_limit(*args, **kwargs):
+            nonlocal max_limit
+            nonlocal seconds
+            nonlocal call_count
+            nonlocal first_call_time
+
+            now = time.time()
+
+            # function called for the first time ever, or after a long while (> seconds) since first_call_time
+            if not first_call_time or now - first_call_time > seconds:
+                first_call_time = now
+                f(*args, **kwargs)
+                call_count = 1
+            elif call_count < max_limit:  # function called within the same time window (< seconds) as first_call_time
+                f(*args, **kwargs)
+                call_count += 1
+            else:  # function called too many times within the same time window as first_call_time
+                time.sleep(first_call_time + seconds - now)
+                first_call_time = time.time()
+                f(*args, **kwargs)
+                call_count = 1
+
+        return f_rate_limit
+
+    return deco_rate_limit
 
 
 def send_request(send_fn: Callable[[], requests.Response], error_message: str) -> requests.Response:
