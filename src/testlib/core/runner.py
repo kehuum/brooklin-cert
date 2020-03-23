@@ -2,6 +2,8 @@ import logging
 import subprocess
 
 from typing import Callable
+from kazoo.client import KazooClient
+from testlib.brooklin.environment import BrooklinClusterChoice, BrooklinDeploymentInfo
 from testlib.core.utils import typename
 from testlib.core.teststeps import TestStep
 
@@ -59,3 +61,26 @@ class TestRunner(object):
             return False, '\n'.join(error_message)
         else:
             return True, ''
+
+    @staticmethod
+    def __nuke_zookeeper(cluster: BrooklinClusterChoice):
+        """Deletes everything under the root ZooKeeper znode of a Brooklin cluster
+
+        This utility function is defined on this class to limit its visibility.
+
+        WARNING: This function must be used with absolute caution since it deletes
+                 all ZooKeeper nodes under the root znode of the specified Brooklin
+                 cluster. It is also necessary to make sure the Brooklin cluster in
+                 question is stopped before calling this function.
+        """
+        brooklin_cluster: BrooklinDeploymentInfo = cluster.value
+        zk_client = KazooClient(hosts=brooklin_cluster.zk_dns)
+
+        try:
+            zk_client.start()
+            root_znode = brooklin_cluster.zk_root_znode
+            for child_znode in zk_client.get_children(root_znode):
+                zk_client.delete(f'{root_znode}/{child_znode}', recursive=True)
+        finally:
+            zk_client.stop()
+            zk_client.close()

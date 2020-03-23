@@ -1,10 +1,8 @@
 import uuid
 
 from abc import abstractmethod
-from collections import namedtuple
-from enum import Enum
-
 from agent.client.brooklin import XMLRPCBrooklinClient
+from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
 from testlib.likafka.teststeps import KafkaClusterChoice
@@ -12,19 +10,12 @@ from testlib.range import get_random_host, list_hosts
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 
-BrooklinDeploymentInfo = namedtuple('BrooklinDeploymentInfo', ['fabric', 'tag'])
-
-
-class BrooklinClusterChoice(Enum):
-    CONTROL = BrooklinDeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.control')
-    EXPERIMENT = BrooklinDeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.candidate')
-
 
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
     def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='basic-mirroring-datastream',
-                 whitelist='^voyager-api.*',  num_tasks=8, topic_create=True, identity=False, passthrough=False,
+                 whitelist='^voyager-api.*', num_tasks=8, topic_create=True, identity=False, passthrough=False,
                  partition_managed=True, cert='identity.p12'):
         super().__init__()
         if not cluster:
@@ -126,10 +117,10 @@ class UpdateDatastream(RunPythonCommand):
     @property
     def main_command(self):
         command = f'{DATASTREAM_CRUD_SCRIPT} update ' \
-                         f'-n {self.name} ' \
-                         f'--cert {self.cert} ' \
-                         f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
-                         f'--force --restart '
+                  f'-n {self.name} ' \
+                  f'--cert {self.cert} ' \
+                  f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
+                  f'--force --restart '
 
         for metadata in self.metadata:
             command += f'--metadata {metadata} '

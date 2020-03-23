@@ -1,22 +1,11 @@
 from abc import abstractmethod
-from collections import namedtuple
-from enum import Enum
 from agent.client.kafka import XMLRPCKafkaClient
 from testlib import DEFAULT_SSL_CERTFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
 from testlib.likafka.admin import AdminClient
+from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
-
-KafkaDeploymentInfo = namedtuple('KafkaDeploymentInfo', ['fabric', 'tag', 'bootstrap_servers'])
-
-
-class KafkaClusterChoice(Enum):
-    SOURCE = KafkaDeploymentInfo(fabric='prod-lva1', tag='kafka.cert',
-                                 bootstrap_servers='kafka.cert.kafka.prod-lva1.atd.prod.linkedin.com:16637')
-    DESTINATION = \
-        KafkaDeploymentInfo(fabric='prod-lor1', tag='kafka.brooklin-cert',
-                            bootstrap_servers='kafka.brooklin-cert.kafka.prod-lor1.atd.prod.linkedin.com:16637')
 
 
 class RunKafkaAudit(RunPythonCommand):

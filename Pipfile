@@ -11,6 +11,7 @@ requests = "*"
 tqdm = "*"
 setuptools = "*"
 wheel = "*"
+kazoo = "*"
 
 [requires]
 python_version = "3.7"
