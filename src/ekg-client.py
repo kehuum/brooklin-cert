@@ -4,7 +4,7 @@ import argparse
 import logging
 import sys
 
-from testlib import DEFAULT_CA_FILE
+from testlib import DEFAULT_SSL_CAFILE
 from testlib.ekg import EkgTarget, EkgClient, ANALYSIS_PASS, ANALYSIS_FAIL
 from testlib.core.utils import OperationFailedError
 
@@ -15,8 +15,8 @@ def parse_args():
     # optional arguments
     parser.add_argument('-v', '--verbose', required=False, action='store_true', default=False,
                         help='Enable verbose logging (default = False)')
-    parser.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_CA_FILE,
-                        help=f'SSL certificate authority file path (default = {DEFAULT_CA_FILE})')
+    parser.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_SSL_CAFILE,
+                        help=f'SSL certificate authority file path (default = {DEFAULT_SSL_CAFILE})')
     parser.add_argument('-i', '--instance', required=False, default='i001',
                         help='Application instance (default = i001)')
     parser.add_argument('-p', '--product', required=False, default='brooklin-server',

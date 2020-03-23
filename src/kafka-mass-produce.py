@@ -8,7 +8,7 @@ import random
 
 from multiprocessing import Process
 from kafka import KafkaProducer
-from testlib import DEFAULT_CA_FILE, DEFAULT_SSL_CERTFILE
+from testlib import DEFAULT_SSL_CAFILE, DEFAULT_SSL_CERTFILE
 from testlib.core.utils import rate_limit
 
 
@@ -33,8 +33,8 @@ def parse_args():
                                help='Max number of messages to send per second')
     optional_args.add_argument('-c', '--cert', dest='ssl_certfile', required=False, default=DEFAULT_SSL_CERTFILE,
                                help=f'SSL certificate file path (PEM format) (default = ./{DEFAULT_SSL_CERTFILE})')
-    optional_args.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_CA_FILE,
-                               help=f'SSL certificate authority file path (default = {DEFAULT_CA_FILE})')
+    optional_args.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_SSL_CAFILE,
+                               help=f'SSL certificate authority file path (default = {DEFAULT_SSL_CAFILE})')
 
     args = parser.parse_args()
     if not os.path.isfile(args.ssl_certfile):

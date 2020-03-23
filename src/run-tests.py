@@ -60,10 +60,8 @@ class BasicTests(unittest.TestCase):
                                                                   run_ekg))
 
     def test_update_datastream_whitelist(self):
-        list_topics_source_voyager = ListTopics(bootstrap_servers=[KafkaClusterChoice.SOURCE.value.bootstrap_servers],
-                                                topic_prefix_filter='voyager-api')
-        list_topics_source_seas = ListTopics(bootstrap_servers=[KafkaClusterChoice.SOURCE.value.bootstrap_servers],
-                                             topic_prefix_filter='seas-')
+        list_topics_source_voyager = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefix_filter='voyager-api')
+        list_topics_source_seas = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefix_filter='seas-')
 
         datastream_name = 'test_update_datastream_whitelist'
         control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
@@ -82,19 +80,17 @@ class BasicTests(unittest.TestCase):
         sleep_after_update = Sleep(secs=60 * 10)
 
         list_topics_destination_voyager_after_update = \
-            ListTopics(bootstrap_servers=[KafkaClusterChoice.DESTINATION.value.bootstrap_servers],
-                       topic_prefix_filter='voyager-api')
+            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefix_filter='voyager-api')
         list_topics_destination_seas_after_update = \
-            ListTopics(bootstrap_servers=[KafkaClusterChoice.DESTINATION.value.bootstrap_servers],
-                       topic_prefix_filter='seas-')
+            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefix_filter='seas-')
         validate_voyager_topics_after_update = \
             ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source_voyager.get_listed_topics,
-                destination_topics_getter=list_topics_destination_voyager_after_update.get_listed_topics)
+                source_topics_getter=list_topics_source_voyager.get_topics,
+                destination_topics_getter=list_topics_destination_voyager_after_update.get_topics)
         validate_seas_topics_after_update = \
             ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source_seas.get_listed_topics,
-                destination_topics_getter=list_topics_destination_seas_after_update.get_listed_topics)
+                source_topics_getter=list_topics_source_seas.get_topics,
+                destination_topics_getter=list_topics_destination_seas_after_update.get_topics)
 
         # TODO: Add a step for validating topics for experiment datastream's whitelist
 
@@ -109,10 +105,10 @@ class BasicTests(unittest.TestCase):
 
         # Clean-up the new topics created as part of the new whitelist
         cleanup_seas_topics = \
-            DeleteTopics(topics_getter=list_topics_destination_seas_after_update.get_listed_topics,
-                         bootstrap_servers=[KafkaClusterChoice.DESTINATION.value.bootstrap_servers])
+            DeleteTopics(topics_getter=list_topics_destination_seas_after_update.get_topics,
+                         cluster=KafkaClusterChoice.DESTINATION)
         validate_seas_topics_cleaned_up = \
-            ValidateTopicsDoNotExist(topics_getter=list_topics_destination_seas_after_update.get_listed_topics,
+            ValidateTopicsDoNotExist(topics_getter=list_topics_destination_seas_after_update.get_topics,
                                      cluster=KafkaClusterChoice.DESTINATION)
 
         # TODO: Add a step to remove and validate topic prefix of experiment datastream's second whitelist

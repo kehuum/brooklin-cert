@@ -1,7 +1,6 @@
 from abc import abstractmethod
 from collections import namedtuple
 from enum import Enum
-
 from agent.client.kafka import XMLRPCKafkaClient
 from testlib import DEFAULT_SSL_CERTFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep
@@ -154,6 +153,8 @@ class ValidateSourceAndDestinationTopicsMatch(TestStep):
 class ValidateTopicsDoNotExist(TestStep):
     """Test step to validate that a list of topics do not exist"""
 
+    # We require specifying one of the predefined Kafka clusters to make
+    # sure we never run this step against other Kafka clusters by mistake.
     def __init__(self, topics_getter, cluster=KafkaClusterChoice.DESTINATION, ssl_certfile=DEFAULT_SSL_CERTFILE,
                  ssl_keyfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
@@ -184,52 +185,56 @@ class ValidateTopicsDoNotExist(TestStep):
 class ListTopics(TestStep):
     """Test step for listing topics in a Kafka cluster, optionally filtered by a topic prefix"""
 
-    def __init__(self, bootstrap_servers, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE,
+    # We require specifying one of the predefined Kafka clusters to make
+    # sure we never run this step against other Kafka clusters by mistake.
+    def __init__(self, cluster: KafkaClusterChoice, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE,
                  ssl_keyfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
-        if not bootstrap_servers:
-            raise ValueError(f'Invalid bootstrap_servers: {bootstrap_servers}')
+        if not cluster:
+            raise ValueError(f'Invalid Kafka cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
         if not ssl_keyfile:
             raise ValueError(f'Key file must be specified')
 
-        self.bootstrap_servers = bootstrap_servers
+        self.cluster = cluster.value
         self.topic_prefix_filter = topic_prefix_filter
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
         self.topics = None
 
     def run_test(self):
-        client = AdminClient(self.bootstrap_servers, self.ssl_certfile, self.ssl_keyfile)
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
         self.topics = [t for t in client.list_topics() if t.startswith(self.topic_prefix_filter)]
 
-    def get_listed_topics(self):
+    def get_topics(self):
         return self.topics
 
 
 class DeleteTopics(TestStep):
     """Test step to delete a list of topics in a Kafka cluster"""
 
-    def __init__(self, topics_getter, bootstrap_servers, ssl_certfile=DEFAULT_SSL_CERTFILE,
+    # We require specifying one of the predefined Kafka clusters to make
+    # sure we never run this step against other Kafka clusters by mistake.
+    def __init__(self, topics_getter, cluster: KafkaClusterChoice, ssl_certfile=DEFAULT_SSL_CERTFILE,
                  ssl_keyfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topics_getter:
             raise ValueError(f'Invalid topic topics getter: {topics_getter}')
-        if not bootstrap_servers:
-            raise ValueError(f'Invalid bootstrap_servers: {bootstrap_servers}')
+        if not cluster:
+            raise ValueError(f'Invalid Kafka cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
         if not ssl_keyfile:
             raise ValueError(f'Key file must be specified')
 
         self.topics_getter = topics_getter
-        self.bootstrap_servers = bootstrap_servers
+        self.cluster = cluster.value
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
 
     def run_test(self):
-        client = AdminClient(self.bootstrap_servers, self.ssl_certfile, self.ssl_keyfile)
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
         topics_to_delete = self.topics_getter()
 
         # Deleting a single topic at a time because bulk topic deletion needs much longer timeout and may lead

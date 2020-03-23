@@ -2,7 +2,7 @@ import logging
 
 from kafka import KafkaAdminClient
 from kafka.admin import NewTopic
-from testlib import DEFAULT_CA_FILE
+from testlib import DEFAULT_SSL_CAFILE
 
 
 class AdminClient(object):
@@ -17,7 +17,7 @@ class AdminClient(object):
         return KafkaAdminClient(bootstrap_servers=bootstrap_servers,
                                 security_protocol='SSL',
                                 ssl_check_hostname=False,
-                                ssl_cafile=DEFAULT_CA_FILE,
+                                ssl_cafile=DEFAULT_SSL_CAFILE,
                                 ssl_certfile=ssl_certfile,
                                 ssl_keyfile=ssl_keyfile)
 
