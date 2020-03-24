@@ -4,7 +4,7 @@ import time
 import math
 import requests
 
-from typing import Callable, Any
+from typing import Callable, Any, Iterable
 from functools import wraps
 
 
@@ -130,7 +130,9 @@ def rate_limit(max_limit, seconds):
     return deco_rate_limit
 
 
-def send_request(send_fn: Callable[[], requests.Response], error_message: str) -> requests.Response:
+def send_request(send_fn: Callable[[], requests.Response], error_message: str,
+                 allowed_status_codes: Iterable[int] = (requests.codes.ok,)) \
+        -> requests.Response:
     """Invokes the provided send_fn, returns its response if successful, or throws if it fails
 
     Args:
@@ -149,8 +151,8 @@ def send_request(send_fn: Callable[[], requests.Response], error_message: str) -
         raise OperationFailedError(error_message, err)
     else:
         status_code = response.status_code
-        if status_code != requests.codes.ok:
-            raise OperationFailedError(f'Received non-success response code: {status_code}\n'
+        if status_code not in allowed_status_codes:
+            raise OperationFailedError(f'Received an unexpected response code: {status_code}\n'
                                        f'{error_message}')
         return response
 
