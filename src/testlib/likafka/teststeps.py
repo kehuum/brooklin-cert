@@ -4,6 +4,7 @@ from testlib import DEFAULT_SSL_CERTFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
 from testlib.likafka.admin import AdminClient
+from testlib.likafka.cruisecontrol import CruiseControlClient
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
 
@@ -230,3 +231,18 @@ class DeleteTopics(TestStep):
         # to some flakiness
         for topic in topics_to_delete:
             client.delete_topic(topic)
+
+
+class PerformKafkaPreferredLeaderElection(TestStep):
+    """Test step to perform Preferred Leader Election (PLE) on a Kafka cluster"""
+
+    def __init__(self, cluster: KafkaClusterChoice):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid Kafka cluster: {cluster}')
+
+        self.cluster = cluster.value
+
+    def run_test(self):
+        ple = CruiseControlClient(self.cluster.cc_endpoint)
+        ple.perform_preferred_leader_election()

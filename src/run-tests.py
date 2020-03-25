@@ -8,7 +8,7 @@ from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host,
 from testlib.core.runner import TestRunner
 from testlib.core.teststeps import Sleep
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker
+from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple
 from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, DeleteTopics, ListTopics, \
     ValidateTopicsDoNotExist, ValidateSourceAndDestinationTopicsMatch
 
@@ -167,6 +167,14 @@ class KafkaErrorInducingTests(unittest.TestCase):
     def test_stop_random_destination_kafka_broker(self):
         test_steps = stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
         self.assertTrue(TestRunner('test_stop_random_destination_kafka_broker').run(*test_steps))
+
+    def test_perform_ple_source_kafka_cluster(self):
+        test_steps = perform_kafka_ple('test_perform_ple_source_kafka_cluster', KafkaClusterChoice.SOURCE)
+        self.assertTrue(TestRunner('test_perform_ple_source_kafka_cluster').run(*test_steps))
+
+    def test_perform_ple_destination_kafka_cluster(self):
+        test_steps = perform_kafka_ple('test_perform_ple_destination_kafka_cluster', KafkaClusterChoice.DESTINATION)
+        self.assertTrue(TestRunner('test_perform_ple_destination_kafka_cluster').run(*test_steps))
 
 
 if __name__ == '__main__':
