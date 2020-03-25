@@ -94,11 +94,19 @@ class BasicTests(unittest.TestCase):
 
         # TODO: Add a step for validating topics for experiment datastream's whitelist
 
-        kafka_audit = RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_update.end_time,
-                                    topics_file='data/voyager-seas-topics.txt')
+        # This audit step validates the first whitelist's completeness since the datastream was initially created
+        kafka_audit_basic = RunKafkaAudit(starttime_getter=control_datastream.end_time,
+                                          endtime_getter=sleep_after_update.end_time)
 
-        # TODO: Add a step for running audit on the experiment data-flow
+        # TODO: Add a step for running audit on the experiment data-flow for the older whitelist
+
+        # This audit step validates the second whitelist's completeness, and it is only fair to compare counts for the
+        # newer topics from when the whitelist was updated
+        kafka_audit_new_topics = RunKafkaAudit(starttime_getter=update_datastream.end_time,
+                                               endtime_getter=sleep_after_update.end_time,
+                                               topics_file='data/voyager-seas-topics.txt')
+
+        # TODO: Add a step for running audit on the experiment data-flow for the newer whitelist
 
         run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                  endtime_getter=sleep_after_update.end_time)
@@ -117,8 +125,8 @@ class BasicTests(unittest.TestCase):
                         .run(list_topics_source_voyager, list_topics_source_seas, control_datastream,
                              sleep_before_update, update_datastream, sleep_after_update,
                              list_topics_destination_voyager_after_update, list_topics_destination_seas_after_update,
-                             validate_voyager_topics_after_update, validate_seas_topics_after_update, kafka_audit,
-                             run_ekg, cleanup_seas_topics, validate_seas_topics_cleaned_up))
+                             validate_voyager_topics_after_update, validate_seas_topics_after_update, kafka_audit_basic,
+                             kafka_audit_new_topics, run_ekg, cleanup_seas_topics, validate_seas_topics_cleaned_up))
 
 
 class BrooklinErrorInducingTests(unittest.TestCase):
