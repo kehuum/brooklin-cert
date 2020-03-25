@@ -1,52 +1,82 @@
 #!/usr/bin/env bash
 
-SCRIPT_NAME=`basename "$0"`
-SOURCES_DIR=src
-DEPENDENCIES_DIR=dependencies
-DEPENDENCIES_TARBALL=$DEPENDENCIES_DIR.tar.gz
-DIST_DIR=dist
-TEST_DRIVER_HOST=lor1-app26891.prod.linkedin.com
+BROOKLIN_ALL_OPTION="--brooklin"
+BROOKLIN_CONTROL_OPTION="--ctrl"
+BROOKLIN_EXP_OPTION="--exp"
+KAFKA_ALL_OPTION="--kafka"
+KAFKA_SRC_OPTION="--src"
+KAFKA_DEST_OPTION="--dest"
+TEST_DRIVER_OPTION="--driver"
+TEST_DRIVER_HOST_OPTION="--td"
+CLEAN_OPTION="--clean"
+VERBOSE_OPTION="-v"
+
+BROOKLIN_CONTROL_TAG="brooklin.cert.control"
+BROOKLIN_EXP_TAG="brooklin.cert.candidate"
+KAFKA_SRC_TAG="kafka.cert"
+KAFKA_DEST_TAG="kafka.brooklin-cert"
+
+INCLUDE_TEST_DRIVER=0
+INCLUDE_BROOKLIN_ALL=0
+INCLUDE_BROOKLIN_CONTROL=0
+INCLUDE_BROOKLIN_EXP=0
+INCLUDE_KAFKA_ALL=0
+INCLUDE_KAFKA_SRC=0
+INCLUDE_KAFKA_DEST=0
+PROMPT_FOR_2FA=1
+CLEAN=0
 VERBOSE=0
 
+DEPENDENCIES_DIR=dependencies
+DEPENDENCIES_TARBALL="$DEPENDENCIES_DIR.tar.gz"
+DIST_DIR=dist
+GEN_CERT_SCRIPT="gen-cert.sh"
+INSTALL_AGENT_SCRIPT="install-agent.sh"
+INSTALL_DRIVER_SCRIPT="install-driver.sh"
+SCRIPT_NAME=$(basename "$0")
+SOURCES_DIR=src
+TEST_DRIVER_HOST="lor1-app26891.prod.linkedin.com"
+
 function usage {
-    echo "usage: $SCRIPT_NAME [-t hostname] [-v] [-h]"
-    echo "Deploy test scripts and their dependencies to a remote host"
+    echo "usage: $SCRIPT_NAME OPTIONS"
+    echo "Deploy test scripts to remote hosts"
     echo
-    echo "  -t hostname          Specify test driver hostname"
-    echo "  -v                   Turn on verbose logging"
-    echo "  -h                   Display help"
-    exit $1
+    echo "OPTIONS"
+    echo "  $TEST_DRIVER_OPTION        Include test scripts on the default test driver host: $TEST_DRIVER_HOST"
+    echo "  $TEST_DRIVER_HOST_OPTION hostname   Include test scripts on the specified hostname"
+    echo "  $BROOKLIN_CONTROL_OPTION          Include test agent on $BROOKLIN_CONTROL_TAG cluster"
+    echo "  $BROOKLIN_EXP_OPTION           Include test agent on $BROOKLIN_EXP_TAG cluster"
+    echo "  $BROOKLIN_ALL_OPTION      Same as specifying both  $BROOKLIN_CONTROL_OPTION and $BROOKLIN_EXP_OPTION"
+    echo "  $KAFKA_SRC_OPTION           Include test agent on $KAFKA_SRC_TAG cluster"
+    echo "  $KAFKA_DEST_OPTION          Include test agent on $KAFKA_DEST_TAG cluster"
+    echo "  $KAFKA_ALL_OPTION         Same as specifying both  $KAFKA_SRC_OPTION and $KAFKA_DEST_OPTION"
+    echo "  $CLEAN_OPTION         Remove files on all included host and clusters"
+    echo "  $VERBOSE_OPTION              Turn on verbose logging"
+    echo "  -h              Display help"
+    exit "$1"
 }
 
-if [ "$#" -ge 4 ]; then
-    echo "Illegal number of parameters"
-    usage
-    exit 1
-fi
+function validate_arguments() {
+  # Validate Brooklin options
+  if [[ $INCLUDE_BROOKLIN_ALL == 1 ]]; then
+    sum=$((INCLUDE_BROOKLIN_CONTROL+INCLUDE_BROOKLIN_EXP))
+    if [[ $sum == 1 ]]; then
+      >&2 echo "Cannot specify $BROOKLIN_ALL_OPTION and one of"\
+      "$BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION"
+      usage 1
+    fi
+  fi
 
-while [[ $# -gt 0 ]]
-do
-key="$1"
-
-case $key in
-    -t)
-    TEST_DRIVER_HOST="$2"
-    shift # past argument
-    shift # past value
-    ;;
-    -v)
-    VERBOSE=1
-    shift # past argument
-    ;;
-    -h|--help)
-    usage 0
-    ;;
-    *)    # unknown option
-    echo "Unrecognized option: $1"
-    usage 1
-    ;;
-esac
-done
+  # Validate Kafka options
+  if [[ $INCLUDE_KAFKA_ALL == 1 ]]; then
+    sum=$((INCLUDE_KAFKA_SRC+INCLUDE_KAFKA_DEST))
+    if [[ $sum == 1 ]]; then
+      >&2 echo "Cannot specify $KAFKA_ALL_OPTION and one of"\
+      "$KAFKA_SRC_OPTION or $KAFKA_DEST_OPTION"
+      usage 1
+    fi
+  fi
+}
 
 function exit_on_failure() {
   if [ $? -ne 0 ]; then
@@ -64,43 +94,185 @@ function redirect_output() {
     fi
 }
 
-redirect_output pushd $SOURCES_DIR
+function prompt_for_2FA() {
+  if [[ $PROMPT_FOR_2FA == 1 ]]; then
+    read -p "Press Enter when you are you ready to type in your 2FA password" -r
+    PROMPT_FOR_2FA=0  # Do not show this prompt again
+  fi
+}
 
-# Generate tarball containing all script files
-echo "Generating scripts tarball ..."
-redirect_output rm -rf $DIST_DIR
-redirect_output pipenv run python setup.py sdist
-exit_on_failure "Generating scripts tarball failed"
+function copy_scripts_to_cluster() {
+  echo "Copying scripts to $1 ..."
+  hosts=$(eh -e "$1")
+  while read -r h; do
+    redirect_output scp "../$INSTALL_AGENT_SCRIPT" $DIST_DIR/brooklin-certification-*.tar.gz "$USER"@"$h":~/
+  done <<< "$hosts"
+}
 
-# Generate tarball for all dependencies
-echo "Generating dependencies tarball ..."
-redirect_output rm -rf $DEPENDENCIES_DIR
-redirect_output mkdir $DEPENDENCIES_DIR
-exit_on_failure "Creating $DEPENDENCIES_DIR failed"
-pipenv lock -r | tail -n +2 > $DEPENDENCIES_DIR/requirements.txt
-exit_on_failure "Generating requirements file failed"
-redirect_output pipenv run python -m pip download -r $DEPENDENCIES_DIR/requirements.txt -d $DEPENDENCIES_DIR
-exit_on_failure "Downloading dependencies failed"
-redirect_output tar -czvf $DEPENDENCIES_TARBALL $DEPENDENCIES_DIR
-exit_on_failure "Creating scripts tarball failed"
+function cleanup_cluster() {
+  echo "Cleaning up $1 ..."
+  redirect_output mssh -r "$1" "./$INSTALL_AGENT_SCRIPT --clean $2"
+}
 
-# Optionally copy tarball to test driver machine
-read -p "Would you like to copy the tarballs to your home dir on $TEST_DRIVER_HOST? (y/n): " -n 1 -r
-echo # add an empty line
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  read -p "Press Enter when you are you ready to type in your 2FA password"
-  redirect_output scp  $DIST_DIR/brooklin-certification-*.tar.gz $USER@$TEST_DRIVER_HOST:~/
-  exit_on_failure "Copying scripts tarball failed"
-  redirect_output scp  $DEPENDENCIES_TARBALL $USER@$TEST_DRIVER_HOST:~/
-  exit_on_failure "Copying dependencies tarball failed"
+if [[ $# -eq 0 ]]; then
+  usage 2
 fi
 
-# Optionally clean up generated files
-read -p "Would you like to clean up generated files and directories? (y/n): " -n 1 -r
-echo # add an empty line
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -t)
+    TEST_DRIVER_HOST="$2"
+    INCLUDE_TEST_DRIVER=1
+    shift # past argument
+    shift # past value
+    ;;
+    $TEST_DRIVER_OPTION)
+    INCLUDE_TEST_DRIVER=1
+    shift # past argument
+    ;;
+    $BROOKLIN_CONTROL_OPTION)
+    INCLUDE_BROOKLIN_CONTROL=1
+    shift # past argument
+    ;;
+    $BROOKLIN_EXP_OPTION)
+    INCLUDE_BROOKLIN_EXP=1
+    shift # past argument
+    ;;
+    $BROOKLIN_ALL_OPTION)
+    INCLUDE_BROOKLIN_ALL=1
+    shift # past argument
+    ;;
+    $KAFKA_SRC_OPTION)
+    INCLUDE_KAFKA_SRC=1
+    shift # past argument
+    ;;
+    $KAFKA_DEST_OPTION)
+    INCLUDE_KAFKA_DEST=1
+    shift # past argument
+    ;;
+    $KAFKA_ALL_OPTION)
+    INCLUDE_KAFKA_ALL=1
+    shift # past argument
+    ;;
+    $CLEAN_OPTION)
+    CLEAN=1
+    shift # past argument
+    ;;
+    -v)
+    VERBOSE=1
+    shift # past argument
+    ;;
+    -h|--help)
+    usage 0
+    ;;
+    *)    # unknown option
+    echo "Unrecognized option: $1"
+    usage 1
+    ;;
+esac
+done
+
+validate_arguments
+
+if [[ $INCLUDE_BROOKLIN_ALL == 1 ]]; then
+  INCLUDE_BROOKLIN_EXP=1
+  INCLUDE_BROOKLIN_CONTROL=1
+fi
+
+if [[ $INCLUDE_KAFKA_ALL == 1 ]]; then
+  INCLUDE_KAFKA_SRC=1
+  INCLUDE_KAFKA_DEST=1
+fi
+
+if [[ $CLEAN == 0 ]]; then
+  redirect_output pushd $SOURCES_DIR
+
+  # Generate tarball containing all script files
+  echo "Generating scripts tarball ..."
+  redirect_output rm -rf $DIST_DIR
+  redirect_output pipenv run python setup.py sdist
+  exit_on_failure "Generating scripts tarball failed"
+
+  # Test driver
+  if [[ $INCLUDE_TEST_DRIVER == 1 ]]; then
+    # Generate tarball for all dependencies
+    echo "Generating dependencies tarball ..."
+    redirect_output rm -rf $DEPENDENCIES_DIR
+    redirect_output mkdir $DEPENDENCIES_DIR
+    exit_on_failure "Creating $DEPENDENCIES_DIR failed"
+    pipenv lock -r | tail -n +2 > $DEPENDENCIES_DIR/requirements.txt
+    exit_on_failure "Generating requirements file failed"
+    redirect_output pipenv run python -m pip download -r $DEPENDENCIES_DIR/requirements.txt -d $DEPENDENCIES_DIR
+    exit_on_failure "Downloading dependencies failed"
+    redirect_output tar -czvf $DEPENDENCIES_TARBALL $DEPENDENCIES_DIR
+    exit_on_failure "Creating scripts tarball failed"
+
+    prompt_for_2FA
+
+    # Copy scripts and tarballs
+    echo "Copying scripts and tarballs to $TEST_DRIVER_HOST"
+    redirect_output scp "../$INSTALL_DRIVER_SCRIPT" "../$GEN_CERT_SCRIPT" $DEPENDENCIES_TARBALL $DIST_DIR/brooklin-certification-*.tar.gz "$USER"@"$TEST_DRIVER_HOST":~/
+    exit_on_failure "Copying scripts tarball failed"
+
+    echo "Installing test driver on $TEST_DRIVER_HOST"
+    redirect_output mssh -n "$TEST_DRIVER_HOST" "./$INSTALL_DRIVER_SCRIPT"
+    exit_on_failure "Installing test driver failed"
+  fi
+
+  # Brooklin control
+  if [[ $INCLUDE_BROOKLIN_CONTROL == 1 ]]; then
+    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+  fi
+
+  # Brooklin experiment
+  if [[ $INCLUDE_BROOKLIN_EXP == 1 ]]; then
+    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+  fi
+
+  # Kafka source
+  if [[ $INCLUDE_KAFKA_SRC == 1 ]]; then
+    copy_scripts_to_cluster "%prod-lva1.tag_hosts:$KAFKA_SRC_TAG" $KAFKA_ALL_OPTION
+  fi
+
+  # Kafka dest
+  if [[ $INCLUDE_KAFKA_DEST == 1 ]]; then
+    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$KAFKA_DEST_TAG" $KAFKA_ALL_OPTION
+  fi
+
+  # Clean up generated files
   redirect_output rm -rf $DEPENDENCIES_DIR $DEPENDENCIES_TARBALL $DIST_DIR *.egg-info
   exit_on_failure "Cleaning up generated files and directories failed"
-fi
 
-redirect_output popd
+  redirect_output popd
+
+else # $CLEAN == 1
+  # Test driver
+  if [[ $INCLUDE_TEST_DRIVER == 1 ]]; then
+    echo "Cleaning up test driver host $TEST_DRIVER_HOST"
+    redirect_output mssh -n "$TEST_DRIVER_HOST" "./$INSTALL_DRIVER_SCRIPT --clean"
+    exit_on_failure "Cleaning up test driver host $TEST_DRIVER_HOST failed"
+  fi
+
+  # Brooklin control
+  if [[ $INCLUDE_BROOKLIN_CONTROL == 1 ]]; then
+    cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+  fi
+
+  # Brooklin experiment
+  if [[ $INCLUDE_BROOKLIN_EXP == 1 ]]; then
+    cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+  fi
+
+  # Kafka source
+  if [[ $INCLUDE_KAFKA_SRC == 1 ]]; then
+    cleanup_cluster "%prod-lva1.tag_hosts:$KAFKA_SRC_TAG" $KAFKA_ALL_OPTION
+  fi
+
+  # Kafka dest
+  if [[ $INCLUDE_KAFKA_DEST == 1 ]]; then
+    cleanup_cluster "%prod-lor1.tag_hosts:$KAFKA_DEST_TAG" $KAFKA_ALL_OPTION
+  fi
+fi
