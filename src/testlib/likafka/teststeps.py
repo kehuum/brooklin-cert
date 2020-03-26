@@ -173,6 +173,36 @@ class ValidateTopicsDoNotExist(TestStep):
                                        f'{", ".join(deleted_topics_set.intersection(current_topics_set))}')
 
 
+class CreateSourceTopic(TestStep):
+    """Test step for creating a topic in the source Kafka cluster"""
+
+    def __init__(self, topic_name, partitions=8, replication_factor=3, topic_configs=None,
+                 ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_keyfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topic_name:
+            raise ValueError(f'Invalid topic name: {topic_name}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_keyfile:
+            raise ValueError(f'Key file must be specified')
+
+        self.cluster = KafkaClusterChoice.SOURCE.value
+        self.topic_name = topic_name
+        self.partitions = partitions
+        self.replication_factor = replication_factor
+        self.topic_configs = topic_configs
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
+        self.client = None
+
+    def run_test(self):
+        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        self.client.create_topic(self.topic_name, self.partitions, self.replication_factor, self.topic_configs)
+
+    def cleanup(self):
+        self.client.delete_topic(self.topic_name)
+
+
 class ListTopics(TestStep):
     """Test step for listing topics in a Kafka cluster, optionally filtered by a topic prefix"""
 
