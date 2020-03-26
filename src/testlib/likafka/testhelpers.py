@@ -1,8 +1,8 @@
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice
-from testlib.core.teststeps import Sleep
+from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKafkaAudit, StopRandomKafkaHost, \
-    PerformKafkaPreferredLeaderElection, RestartKafkaCluster
+    PerformKafkaPreferredLeaderElection
 
 
 def kill_kafka_broker(datastream_name, kafka_cluster):
@@ -110,7 +110,7 @@ def restart_kafka_cluster(datastream_name, kafka_cluster, host_concurrency):
     sleep_before_restart = Sleep(secs=60 * 10)
     test_steps.append(sleep_before_restart)
 
-    restart_kafka = RestartKafkaCluster(cluster=kafka_cluster, host_concurrency=host_concurrency)
+    restart_kafka = RestartCluster(cluster=kafka_cluster, host_concurrency=host_concurrency)
     test_steps.append(restart_kafka)
 
     sleep_after_restart = Sleep(secs=60 * 10)

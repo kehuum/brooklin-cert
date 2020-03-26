@@ -14,3 +14,7 @@ class BrooklinClusterChoice(Enum):
     EXPERIMENT = BrooklinDeploymentInfo(fabric='prod-lor1', tag='brooklin.cert.candidate',
                                         zk_dns='zk-lor1-datastream.prod.linkedin.com:12913',
                                         zk_root_znode='/brooklin-cert-candidate')
+
+    @property
+    def product_name(self):
+        return BROOKLIN_PRODUCT_NAME

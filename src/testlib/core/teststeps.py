@@ -3,6 +3,11 @@ import subprocess
 import time
 
 from abc import ABC, abstractmethod
+from typing import Union
+from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
+from testlib.brooklin.environment import BrooklinClusterChoice
+from testlib.lid import LidClient
+from testlib.likafka.environment import KafkaClusterChoice
 
 
 class TestStep(ABC):
@@ -88,3 +93,30 @@ class Sleep(TestStep):
     def run_test(self):
         logging.info(f'Sleeping for {self._secs} seconds')
         time.sleep(self._secs)
+
+
+class RestartCluster(TestStep):
+    """Test step to restart a Kafka/Brooklin cluster"""
+
+    def __init__(self, cluster: Union[BrooklinClusterChoice, KafkaClusterChoice], host_concurrency=10,
+                 ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_cafile=DEFAULT_SSL_CAFILE):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid Kafka/Brooklin cluster provided: {cluster}')
+        if not 0 < host_concurrency <= 100:
+            raise ValueError(f'Invalid host concurrency passed: {host_concurrency}. Should be a percentage')
+        if not ssl_certfile:
+            raise ValueError(f'The SSL certificate path must be provided')
+        if not ssl_cafile:
+            raise ValueError(f'The SSL CA path must be provided')
+
+        self.cluster = cluster.value
+        self.product_name = cluster.product_name
+        self.host_concurrency = host_concurrency
+        self.ssl_certfile = ssl_certfile
+        self.ssl_cafile = ssl_cafile
+
+    def run_test(self):
+        lid_client = LidClient(ssl_certfile=self.ssl_certfile, ssl_cafile=self.ssl_cafile)
+        lid_client.restart(product=self.product_name, fabric=self.cluster.fabric, product_tag=self.cluster.tag,
+                           host_concurrency=self.host_concurrency)

@@ -1,7 +1,7 @@
 from testlib.brooklin.teststeps import CreateDatastream, GetBrooklinLeaderHost, BrooklinClusterChoice, \
     KillBrooklinHost, KillRandomBrooklinHost, StartBrooklinHost, StopBrooklinHost, StopRandomBrooklinHost, \
-    PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost, RestartBrooklinCluster
-from testlib.core.teststeps import Sleep
+    PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost
+from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
 
@@ -161,7 +161,7 @@ def restart_brooklin_cluster(datastream_name, host_concurrency):
     sleep_before_restart = Sleep(secs=60 * 10)
     test_steps.append(sleep_before_restart)
 
-    restart_brooklin = RestartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, host_concurrency=host_concurrency)
+    restart_brooklin = RestartCluster(cluster=BrooklinClusterChoice.CONTROL, host_concurrency=host_concurrency)
     test_steps.append(restart_brooklin)
 
     # TODO: Add a step for restarting the the experiment cluster

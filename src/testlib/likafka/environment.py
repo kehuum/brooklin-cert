@@ -16,3 +16,7 @@ class KafkaClusterChoice(Enum):
                             bootstrap_servers='kafka.brooklin-cert.kafka.prod-lor1.atd.prod.linkedin.com:16637',
                             cc_endpoint='http://likafka-cruise-control.brooklin-cert.tag.prod-lor1.atd.prod.linkedin.'
                                         'com:2540/kafkacruisecontrol/')
+
+    @property
+    def product_name(self):
+        return KAFKA_PRODUCT_NAME
