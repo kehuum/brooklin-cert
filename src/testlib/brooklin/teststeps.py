@@ -2,9 +2,11 @@ import uuid
 
 from abc import abstractmethod
 from agent.client.brooklin import XMLRPCBrooklinClient
-from testlib.brooklin.environment import BrooklinClusterChoice
+from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
+from testlib.brooklin.environment import BrooklinClusterChoice, BROOKLIN_PRODUCT_NAME
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
+from testlib.lid import LidClient
 from testlib.likafka.teststeps import KafkaClusterChoice
 from testlib.range import get_random_host, list_hosts
 
@@ -15,7 +17,7 @@ class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
     def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='basic-mirroring-datastream',
-                 whitelist='^voyager-api.*', num_tasks=8, topic_create=True, identity=False, passthrough=False,
+                 whitelist='^voyager-api.*', num_tasks=120, topic_create=True, identity=False, passthrough=False,
                  partition_managed=True, cert='identity.p12'):
         super().__init__()
         if not cluster:
@@ -282,3 +284,29 @@ class ResumeBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.resume_brooklin()
+
+
+class RestartBrooklinCluster(TestStep):
+    """Test step to restart a Brooklin cluster"""
+
+    def __init__(self, cluster: BrooklinClusterChoice, host_concurrency=10, ssl_certfile=DEFAULT_SSL_CERTFILE,
+                 ssl_cafile=DEFAULT_SSL_CAFILE):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid Brooklin cluster provided: {cluster}')
+        if not 0 < host_concurrency <= 100:
+            raise ValueError(f'Invalid host concurrency passed: {host_concurrency}. Should be a percentage')
+        if not ssl_certfile:
+            raise ValueError(f'The SSL certificate path must be provided')
+        if not ssl_cafile:
+            raise ValueError(f'The SSL CA path must be provided')
+
+        self.cluster = cluster.value
+        self.host_concurrency = host_concurrency
+        self.ssl_certfile = ssl_certfile
+        self.ssl_cafile = ssl_cafile
+
+    def run_test(self):
+        lid_client = LidClient(ssl_certfile=self.ssl_certfile, ssl_cafile=self.ssl_cafile)
+        lid_client.restart(product=BROOKLIN_PRODUCT_NAME, fabric=self.cluster.fabric, product_tag=self.cluster.tag,
+                           host_concurrency=self.host_concurrency)

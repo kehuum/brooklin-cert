@@ -1,6 +1,6 @@
 from testlib.brooklin.teststeps import CreateDatastream, GetBrooklinLeaderHost, BrooklinClusterChoice, \
     KillBrooklinHost, KillRandomBrooklinHost, StartBrooklinHost, StopBrooklinHost, StopRandomBrooklinHost, \
-    PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost
+    PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost, RestartBrooklinCluster
 from testlib.core.teststeps import Sleep
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
@@ -147,4 +147,32 @@ def pause_resume_brooklin_host(datastream_name, is_leader):
 
     test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                      endtime_getter=sleep_after_start.end_time))
+    return test_steps
+
+
+def restart_brooklin_cluster(datastream_name, host_concurrency):
+    test_steps = []
+    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
+                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    test_steps.append(control_datastream)
+
+    # TODO: Add a step for creating experiment datastream
+
+    sleep_before_restart = Sleep(secs=60 * 10)
+    test_steps.append(sleep_before_restart)
+
+    restart_brooklin = RestartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, host_concurrency=host_concurrency)
+    test_steps.append(restart_brooklin)
+
+    # TODO: Add a step for restarting the the experiment cluster
+
+    sleep_after_restart = Sleep(secs=60 * 10)
+    test_steps.append(sleep_after_restart)
+    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
+                                    endtime_getter=sleep_after_restart.end_time))
+
+    # TODO: Add a step for running audit on the experiment data-flow
+
+    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
+                                     endtime_getter=sleep_after_restart.end_time))
     return test_steps

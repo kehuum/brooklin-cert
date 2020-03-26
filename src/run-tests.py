@@ -4,7 +4,8 @@ import logging
 import unittest
 
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
-from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host
+from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host, \
+    restart_brooklin_cluster
 from testlib.core.runner import TestRunner
 from testlib.core.teststeps import Sleep
 from testlib.ekg import RunEkgAnalysis
@@ -127,6 +128,14 @@ class BasicTests(unittest.TestCase):
                              list_topics_destination_voyager_after_update, list_topics_destination_seas_after_update,
                              validate_voyager_topics_after_update, validate_seas_topics_after_update, kafka_audit_basic,
                              kafka_audit_new_topics, run_ekg, cleanup_seas_topics, validate_seas_topics_cleaned_up))
+
+    def test_brooklin_cluster_parallel_bounce(self):
+        test_steps = restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
+        self.assertTrue(TestRunner('test_brooklin_cluster_parallel_bounce').run(*test_steps))
+
+    def test_brooklin_cluster_rolling_bounce(self):
+        test_steps = restart_brooklin_cluster('test_brooklin_cluster_rolling_bounce', 10)
+        self.assertTrue(TestRunner('test_brooklin_cluster_rolling_bounce').run(*test_steps))
 
 
 class BrooklinErrorInducingTests(unittest.TestCase):
