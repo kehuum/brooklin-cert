@@ -1,6 +1,8 @@
 from collections import namedtuple
 from enum import Enum
 
+KAFKA_PRODUCT_NAME = 'kafka-server'
+
 KafkaDeploymentInfo = namedtuple('KafkaDeploymentInfo', ['fabric', 'tag', 'bootstrap_servers', 'cc_endpoint'])
 
 

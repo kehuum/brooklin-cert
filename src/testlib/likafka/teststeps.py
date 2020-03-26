@@ -1,11 +1,12 @@
 from abc import abstractmethod
 from agent.client.kafka import XMLRPCKafkaClient
-from testlib import DEFAULT_SSL_CERTFILE
+from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
+from testlib.lid import LidClient
 from testlib.likafka.admin import AdminClient
 from testlib.likafka.cruisecontrol import CruiseControlClient
-from testlib.likafka.environment import KafkaClusterChoice
+from testlib.likafka.environment import KafkaClusterChoice, KAFKA_PRODUCT_NAME
 from testlib.range import get_random_host
 
 
@@ -246,3 +247,29 @@ class PerformKafkaPreferredLeaderElection(TestStep):
     def run_test(self):
         ple = CruiseControlClient(self.cluster.cc_endpoint)
         ple.perform_preferred_leader_election()
+
+
+class RestartKafkaCluster(TestStep):
+    """Test step to restart a Kafka cluster"""
+
+    def __init__(self, cluster: KafkaClusterChoice, host_concurrency=10, ssl_certfile=DEFAULT_SSL_CERTFILE,
+                 ssl_cafile=DEFAULT_SSL_CAFILE):
+        super().__init__()
+        if not cluster:
+            raise ValueError(f'Invalid Kafka cluster provided: {cluster}')
+        if not 0 < host_concurrency <= 100:
+            raise ValueError(f'Invalid host concurrency passed: {host_concurrency}. Should be a percentage')
+        if not ssl_certfile:
+            raise ValueError(f'The SSL certificate path must be provided')
+        if not ssl_cafile:
+            raise ValueError(f'The SSL CA path must be provided')
+
+        self.cluster = cluster.value
+        self.host_concurrency = host_concurrency
+        self.ssl_certfile = ssl_certfile
+        self.ssl_cafile = ssl_cafile
+
+    def run_test(self):
+        lid_client = LidClient(ssl_certfile=self.ssl_certfile, ssl_cafile=self.ssl_cafile)
+        lid_client.restart(product=KAFKA_PRODUCT_NAME, fabric=self.cluster.fabric, product_tag=self.cluster.tag,
+                           host_concurrency=self.host_concurrency)
