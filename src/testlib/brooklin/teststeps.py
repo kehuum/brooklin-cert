@@ -2,11 +2,9 @@ import uuid
 
 from abc import abstractmethod
 from agent.client.brooklin import XMLRPCBrooklinClient
-from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
-from testlib.brooklin.environment import BrooklinClusterChoice, BROOKLIN_PRODUCT_NAME
+from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.core.teststeps import RunPythonCommand, TestStep
 from testlib.core.utils import OperationFailedError
-from testlib.lid import LidClient
 from testlib.likafka.teststeps import KafkaClusterChoice
 from testlib.range import get_random_host, list_hosts
 
@@ -194,6 +192,37 @@ class ManipulateBrooklinHost(TestStep):
         pass
 
 
+class ManipulateBrooklinCluster(TestStep):
+    """Base class for any test step that needs to execute an action on an entire Brooklin cluster
+
+    Extenders are expected to:
+        - Implement the process function to execute the action on the specified host
+    """
+
+    def __init__(self, cluster: BrooklinClusterChoice):
+        super().__init__()
+        self.cluster = cluster.value
+
+    def run_test(self):
+        for host in list_hosts(fabric=self.cluster.fabric, tag=self.cluster.tag):
+            try:
+                self.process(host)
+            except Exception as err:
+                raise OperationFailedError(message=f'Executing cluster action failed on {host}', cause=err)
+
+    @abstractmethod
+    def process(self, host):
+        pass
+
+
+class PingBrooklinCluster(ManipulateBrooklinCluster):
+    """Test step for pinging the test agents on an entire Brooklin cluster"""
+
+    def process(self, host):
+        with XMLRPCBrooklinClient(hostname=host) as client:
+            client.ping()
+
+
 class StopBrooklinHost(ManipulateBrooklinHost):
     """Test step to stop a Brooklin host"""
 
@@ -246,11 +275,25 @@ class KillRandomBrooklinHost(KillBrooklinHost):
         return self.host
 
 
+class KillBrooklinCluster(ManipulateBrooklinCluster):
+    """Test step for killing Brooklin in an entire cluster"""
+
+    def process(self, host):
+        KillBrooklinHost(hostname_getter=lambda: host).run()
+
+
 class StartBrooklinHost(ManipulateBrooklinHost):
     """Test step to start a Brooklin host"""
 
     def invoke_client_function(self, client):
         client.start_brooklin()
+
+
+class StartBrooklinCluster(ManipulateBrooklinCluster):
+    """Test step for starting Brooklin in an entire cluster"""
+
+    def process(self, host):
+        StartBrooklinHost(hostname_getter=lambda: host).run()
 
 
 class PauseBrooklinHost(ManipulateBrooklinHost):

@@ -4,6 +4,7 @@ import time
 
 from abc import ABC, abstractmethod
 from typing import Union
+from kazoo.client import KazooClient
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.lid import LidClient
@@ -120,3 +121,29 @@ class RestartCluster(TestStep):
         lid_client = LidClient(ssl_certfile=self.ssl_certfile, ssl_cafile=self.ssl_cafile)
         lid_client.restart(product=self.product_name, fabric=self.cluster.fabric, product_tag=self.cluster.tag,
                            host_concurrency=self.host_concurrency)
+
+
+class NukeZooKeeper(TestStep):
+    """Deletes everything under the root ZooKeeper znode of a Brooklin cluster
+
+    WARNING: This step must be used with absolute caution since it deletes
+             all ZooKeeper nodes under the root znode of the specified Brooklin
+             cluster. It is also necessary to make sure all hosts in the
+             specified cluster are stopped before running this step.
+    """
+
+    def __init__(self, cluster: BrooklinClusterChoice):
+        super().__init__()
+        self.cluster = cluster.value
+
+    def run_test(self):
+        zk_client = KazooClient(hosts=self.cluster.zk_dns)
+
+        try:
+            zk_client.start()
+            root_znode = self.cluster.zk_root_znode
+            for child_znode in zk_client.get_children(root_znode):
+                zk_client.delete(f'{root_znode}/{child_znode}', recursive=True)
+        finally:
+            zk_client.stop()
+            zk_client.close()
