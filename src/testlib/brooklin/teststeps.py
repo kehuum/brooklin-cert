@@ -60,14 +60,6 @@ class CreateDatastream(RunPythonCommand):
 
         return command
 
-    @property
-    def cleanup_command(self):
-        return f'{DATASTREAM_CRUD_SCRIPT} delete ' \
-               f'-n {self.name} ' \
-               f'--cert {self.cert} ' \
-               f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
-               '--force'
-
 
 class RestartDatastream(RunPythonCommand):
     """Test step for restarting a datastream"""
@@ -176,19 +168,11 @@ class ManipulateBrooklinHost(TestStep):
         with XMLRPCBrooklinClient(hostname=self.host) as client:
             self.invoke_client_function(client)
 
-    def cleanup(self):
-        self.host = self.hostname_getter()
-        with XMLRPCBrooklinClient(hostname=self.host) as client:
-            self.invoke_client_cleanup_function(client)
-
     def get_host(self):
         return self.host
 
     @abstractmethod
     def invoke_client_function(self, client):
-        pass
-
-    def invoke_client_cleanup_function(self, client):
         pass
 
 
@@ -229,9 +213,6 @@ class StopBrooklinHost(ManipulateBrooklinHost):
     def invoke_client_function(self, client):
         client.stop_brooklin()
 
-    def invoke_client_cleanup_function(self, client):
-        client.start_brooklin()
-
 
 class StopRandomBrooklinHost(StopBrooklinHost):
     """Test step to stop a random Brooklin host in the cluster"""
@@ -258,9 +239,6 @@ class KillBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.kill_brooklin(skip_if_dead=self.skip_if_dead)
-
-    def invoke_client_cleanup_function(self, client):
-        client.start_brooklin()
 
 
 class KillRandomBrooklinHost(KillBrooklinHost):
@@ -309,9 +287,6 @@ class PauseBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.pause_brooklin()
-
-    def invoke_client_cleanup_function(self, client):
-        client.resume_brooklin()
 
 
 class PauseRandomBrooklinHost(PauseBrooklinHost):

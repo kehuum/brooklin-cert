@@ -47,7 +47,7 @@ class TestStep(ABC):
 
 
 class RunPythonCommand(TestStep, ABC):
-    """Base class of any test step that invovles running a Python script.
+    """Base class of any test step that involves running a Python script.
 
     Extenders are expected to:
         - Implement the main_command property to specify the Python script to run
@@ -65,7 +65,7 @@ class RunPythonCommand(TestStep, ABC):
         command = self.cleanup_command
         if command:
             logging.info(f'Running Python cleanup command: {command}')
-            RunPythonCommand.run_command(self.cleanup_command)
+            RunPythonCommand.run_command(command)
 
     @property
     @abstractmethod
