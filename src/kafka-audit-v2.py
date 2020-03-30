@@ -57,8 +57,8 @@ def get_audit_counts(topic, start_ms, end_ms):
     r = requests.get(url)
     if r.status_code == requests.codes.ok:
         return r.json()
-    print("Error in processing topic %s" % topic)
-    raise ValueError()
+    print('Error in processing topic %s' % topic)
+    raise ValueError(f'Error in processing topic {topic}, status code: {r.status_code}')
 
 
 def is_cert_tier(topic_counts):
@@ -69,7 +69,7 @@ def process(topic, start_ms, end_ms):
     try:
         topic_counts = get_audit_counts(topic, start_ms, end_ms)
     except ValueError as e:
-        log.error('Unable to get audit counts, error: {}'.format(e), file=sys.stderr)
+        log.error('Unable to get audit counts, error: {}'.format(e))
         return False
     else:
         return (topic, topic_counts) if is_cert_tier(topic_counts) else False
