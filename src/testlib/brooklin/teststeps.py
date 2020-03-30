@@ -252,8 +252,12 @@ class StopRandomBrooklinHost(StopBrooklinHost):
 class KillBrooklinHost(ManipulateBrooklinHost):
     """Test step to kill a Brooklin host"""
 
+    def __init__(self, skip_if_dead=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skip_if_dead = skip_if_dead
+
     def invoke_client_function(self, client):
-        client.kill_brooklin()
+        client.kill_brooklin(skip_if_dead=self.skip_if_dead)
 
     def invoke_client_cleanup_function(self, client):
         client.start_brooklin()
@@ -278,8 +282,12 @@ class KillRandomBrooklinHost(KillBrooklinHost):
 class KillBrooklinCluster(ManipulateBrooklinCluster):
     """Test step for killing Brooklin in an entire cluster"""
 
+    def __init__(self, skip_if_dead=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skip_if_dead = skip_if_dead
+
     def process(self, host):
-        KillBrooklinHost(hostname_getter=lambda: host).run()
+        KillBrooklinHost(skip_if_dead=self.skip_if_dead, hostname_getter=lambda: host).run()
 
 
 class StartBrooklinHost(ManipulateBrooklinHost):

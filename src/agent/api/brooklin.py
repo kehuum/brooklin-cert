@@ -6,7 +6,7 @@ class BrooklinCommands(ABC):
     clients can request from Brooklin server agents.
     """
     @abstractmethod
-    def is_brooklin_leader(self):
+    def is_brooklin_leader(self) -> bool:
         pass
 
     @abstractmethod
@@ -26,5 +26,5 @@ class BrooklinCommands(ABC):
         pass
 
     @abstractmethod
-    def kill_brooklin(self):
+    def kill_brooklin(self, skip_if_dead=False) -> bool:
         pass

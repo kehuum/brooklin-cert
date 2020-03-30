@@ -70,6 +70,6 @@ class TestRunner(object):
     def _get_pretest_steps():
         # TODO: add steps for Brooklin's experiment cluster
         return PingBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL),\
-               KillBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL),\
+               KillBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, skip_if_dead=True),\
                NukeZooKeeper(cluster=BrooklinClusterChoice.CONTROL),\
                StartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL)

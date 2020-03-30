@@ -32,7 +32,7 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         self.register_function(self.kill_brooklin)
 
     # Commands
-    def is_brooklin_leader(self):
+    def is_brooklin_leader(self) -> bool:
         is_leader_url = 'http://localhost:2428/brooklin-service/jmx/mbean?objectname=metrics%3Aname%3DCoordinator' \
                         '.isLeader '
         response = urllib.request.urlopen(is_leader_url)
@@ -54,18 +54,30 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
     def start_brooklin(self):
         command = f'{self.CONTROL_SCRIPT_PATH} start'
         run_command(command)
+        return True
 
     def stop_brooklin(self):
         command = f'{self.CONTROL_SCRIPT_PATH} stop'
         run_command(command)
 
-    def kill_brooklin(self):
+    def kill_brooklin(self, skip_if_dead=False) -> bool:
+        pid = XMLRPCBrooklinServerMixIn.get_pid()
+
+        if skip_if_dead and not is_process_running(pid):
+            logging.info(f"Skipped killing Brooklin because PID {pid} is not running and skip_if_dead is True")
+            return False
+
         logging.info("Trying to kill Brooklin")
         self.send_signal(signal.SIGKILL)
+        return True
+
+    @staticmethod
+    def get_pid():
+        return get_pid_from_file('/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid')
 
     @staticmethod
     def send_signal(sig):
-        pid = get_pid_from_file('/export/content/lid/apps/brooklin-service/i001/logs/brooklin-service.pid')
+        pid = XMLRPCBrooklinServerMixIn.get_pid()
 
         is_running, msg = is_process_running(pid)
         logging.info(f'Brooklin pid retrieval status: {msg}')

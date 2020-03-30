@@ -1,5 +1,4 @@
 from xmlrpc.client import ServerProxy
-
 from agent.api.brooklin import BrooklinCommands
 from agent.client.basic import XMLRPCBasicClientMixIn, XMLRPCClientBase
 
@@ -16,7 +15,7 @@ class XMLRPCBrooklinClientMixIn(BrooklinCommands):
         super().__init__(**kwargs)
         self.__proxy: ServerProxy = self._get_proxy()
 
-    def is_brooklin_leader(self):
+    def is_brooklin_leader(self) -> bool:
         proxy = self.__proxy
         return proxy.is_brooklin_leader()
 
@@ -36,9 +35,9 @@ class XMLRPCBrooklinClientMixIn(BrooklinCommands):
         proxy = self.__proxy
         proxy.stop_brooklin()
 
-    def kill_brooklin(self):
+    def kill_brooklin(self, skip_if_dead=False) -> bool:
         proxy = self.__proxy
-        proxy.kill_brooklin()
+        return proxy.kill_brooklin(skip_if_dead)
 
 
 class XMLRPCBrooklinClient(XMLRPCBrooklinClientMixIn, XMLRPCBasicClientMixIn, XMLRPCClientBase):
