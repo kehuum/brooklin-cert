@@ -6,20 +6,20 @@ from testlib import DEFAULT_SSL_CAFILE
 
 
 class AdminClient(object):
-    def __init__(self, bootstrap_servers, cert_file, key_file):
+    def __init__(self, bootstrap_servers, cert_file):
         self.bootstrap_servers = bootstrap_servers
-        self.admin_client = self.create_admin_client(bootstrap_servers, cert_file, key_file)
+        self.admin_client = self.create_admin_client(bootstrap_servers, cert_file)
 
     @staticmethod
-    def create_admin_client(bootstrap_servers, ssl_certfile, ssl_keyfile):
-        logging.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, cert file:'
-                      f' {ssl_certfile}, key file: {ssl_keyfile}')
+    def create_admin_client(bootstrap_servers, ssl_certfile):
+        logging.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, '
+                      f'cert file: {ssl_certfile}')
         return KafkaAdminClient(bootstrap_servers=bootstrap_servers,
                                 security_protocol='SSL',
                                 ssl_check_hostname=False,
                                 ssl_cafile=DEFAULT_SSL_CAFILE,
                                 ssl_certfile=ssl_certfile,
-                                ssl_keyfile=ssl_keyfile)
+                                ssl_keyfile=ssl_certfile)
 
     def create_topic(self, name, partitions, replication_factor, topic_configs):
         config_dict = dict()
