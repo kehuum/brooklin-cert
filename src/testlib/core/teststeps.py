@@ -9,6 +9,7 @@ from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.lid import LidClient
 from testlib.likafka.environment import KafkaClusterChoice
+from testlib.range import get_random_host
 
 
 class TestStep(ABC):
@@ -147,3 +148,11 @@ class NukeZooKeeper(TestStep):
         finally:
             zk_client.stop()
             zk_client.close()
+
+
+class GetRandomHostMixIn(object):
+    """Mixin to be used with any ManipulateBrooklinHost or ManipulateKafkaHost extender
+    that wishes to execute an action against a random host"""
+
+    def __init__(self, cluster: Union[BrooklinClusterChoice, KafkaClusterChoice], **kwargs):
+        super().__init__(hostname_getter=lambda: get_random_host(cluster.value.fabric, cluster.value.tag), **kwargs)

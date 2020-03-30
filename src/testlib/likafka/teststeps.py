@@ -196,7 +196,7 @@ class CreateSourceTopic(TestStep):
         self.client = None
 
     def run_test(self):
-        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
         self.client.create_topic(self.topic_name, self.partitions, self.replication_factor, self.topic_configs)
 
     def cleanup(self):
@@ -225,7 +225,7 @@ class ListTopics(TestStep):
         self.topics = None
 
     def run_test(self):
-        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
         self.topics = [t for t in client.list_topics() if t.startswith(self.topic_prefix_filter)]
 
     def get_topics(self):
@@ -255,7 +255,7 @@ class DeleteTopics(TestStep):
         self.ssl_keyfile = ssl_keyfile
 
     def run_test(self):
-        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
         topics_to_delete = self.topics_getter()
 
         # Deleting a single topic at a time because bulk topic deletion needs much longer timeout and may lead

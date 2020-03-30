@@ -1,15 +1,19 @@
 import uuid
 
 from abc import abstractmethod
+from functools import partial
+from typing import Type
 from agent.client.brooklin import XMLRPCBrooklinClient
 from testlib.brooklin.environment import BrooklinClusterChoice
-from testlib.core.teststeps import RunPythonCommand, TestStep
+from testlib.core.teststeps import RunPythonCommand, TestStep, GetRandomHostMixIn
 from testlib.core.utils import OperationFailedError
 from testlib.likafka.teststeps import KafkaClusterChoice
-from testlib.range import get_random_host, list_hosts
+from testlib.range import list_hosts
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 
+
+# Datastream steps
 
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
@@ -123,6 +127,120 @@ class UpdateDatastream(RunPythonCommand):
         return command
 
 
+# Base steps
+
+class ManipulateBrooklinHost(TestStep):
+    """Base class for any test step that needs to execution an action on a Brooklin host using
+     the test agent
+
+    Extenders are expected to:
+        - Implement the invoke_client_function function to specify the agent client script to run
+    """
+
+    def __init__(self, hostname_getter=None):
+        super().__init__()
+        self.hostname_getter = hostname_getter
+        self.host = None
+
+    def run_test(self):
+        self.host = self.hostname_getter()
+        with XMLRPCBrooklinClient(hostname=self.host) as client:
+            self.invoke_client_function(client)
+
+    def get_host(self):
+        return self.host
+
+    @abstractmethod
+    def invoke_client_function(self, client):
+        pass
+
+
+class ManipulateBrooklinCluster(TestStep):
+    """Base class for any test step that needs to execute an action on all the hosts of an entire
+    Brooklin cluster using the test agent
+
+    """
+
+    def __init__(self, cluster: BrooklinClusterChoice, step_class: Type[ManipulateBrooklinHost]):
+        super().__init__()
+        self.cluster = cluster.value
+        self.step_class = step_class
+
+    def run_test(self):
+        for host in list_hosts(fabric=self.cluster.fabric, tag=self.cluster.tag):
+            host_step = self.step_class(hostname_getter=lambda: host)
+            try:
+                host_step.run()
+            except Exception as err:
+                raise OperationFailedError(
+                    message=f'Executing cluster action of type {self.step_class} failed on {host}', cause=err)
+
+
+# Single host steps
+
+class PingBrooklinHost(ManipulateBrooklinHost):
+    """Test step for pinging the test agent on a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.ping()
+
+
+class StartBrooklinHost(ManipulateBrooklinHost):
+    """Test step to start a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.start_brooklin()
+
+
+class StopBrooklinHost(ManipulateBrooklinHost):
+    """Test step to stop a Brooklin host"""
+
+    def invoke_client_function(self, client):
+        client.stop_brooklin()
+
+
+class StopRandomBrooklinHost(GetRandomHostMixIn, StopBrooklinHost):
+    """Test step to stop a random Brooklin host in the cluster"""
+    pass
+
+
+class KillBrooklinHost(ManipulateBrooklinHost):
+    """Test step to kill a Brooklin host"""
+
+    def __init__(self, skip_if_dead=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skip_if_dead = skip_if_dead
+
+    def invoke_client_function(self, client):
+        client.kill_brooklin(skip_if_dead=self.skip_if_dead)
+
+
+class KillRandomBrooklinHost(GetRandomHostMixIn, KillBrooklinHost):
+    """Test step to kill a random Brooklin host in the cluster"""
+    pass
+
+
+class PauseBrooklinHost(ManipulateBrooklinHost):
+    """Test step to pause the Brooklin process on a host"""
+
+    def invoke_client_function(self, client):
+        client.pause_brooklin()
+
+
+class PauseRandomBrooklinHost(GetRandomHostMixIn, PauseBrooklinHost):
+    """Test step to pause the Brooklin process on a random host in the cluster"""
+    pass
+
+
+class ResumeBrooklinHost(ManipulateBrooklinHost):
+    """Test step to resume the Brooklin process on a host"""
+
+    def invoke_client_function(self, client):
+        client.resume_brooklin()
+
+
+# Whole cluster steps
+
 class GetBrooklinLeaderHost(TestStep):
     """Test step to get the Brooklin Leader Host"""
 
@@ -150,163 +268,23 @@ class GetBrooklinLeaderHost(TestStep):
             return client.is_brooklin_leader()
 
 
-class ManipulateBrooklinHost(TestStep):
-    """Base class for any test step that manipulates the Brooklin hosts using the Agent
-
-    Extenders are expected to:
-        - Implement the invoke_client_function function to specify the agent client script to run
-        - Implement the invoke_client_cleanup_function function if any cleanup steps are required
-    """
-
-    def __init__(self, hostname_getter=None):
-        super().__init__()
-        self.hostname_getter = hostname_getter
-        self.host = None
-
-    def run_test(self):
-        self.host = self.hostname_getter()
-        with XMLRPCBrooklinClient(hostname=self.host) as client:
-            self.invoke_client_function(client)
-
-    def get_host(self):
-        return self.host
-
-    @abstractmethod
-    def invoke_client_function(self, client):
-        pass
-
-
-class ManipulateBrooklinCluster(TestStep):
-    """Base class for any test step that needs to execute an action on an entire Brooklin cluster
-
-    Extenders are expected to:
-        - Implement the process function to execute the action on the specified host
-    """
-
-    def __init__(self, cluster: BrooklinClusterChoice):
-        super().__init__()
-        self.cluster = cluster.value
-
-    def run_test(self):
-        for host in list_hosts(fabric=self.cluster.fabric, tag=self.cluster.tag):
-            try:
-                self.process(host)
-            except Exception as err:
-                raise OperationFailedError(message=f'Executing cluster action failed on {host}', cause=err)
-
-    @abstractmethod
-    def process(self, host):
-        pass
-
-
 class PingBrooklinCluster(ManipulateBrooklinCluster):
     """Test step for pinging the test agents on an entire Brooklin cluster"""
 
-    def process(self, host):
-        with XMLRPCBrooklinClient(hostname=host) as client:
-            client.ping()
-
-
-class StopBrooklinHost(ManipulateBrooklinHost):
-    """Test step to stop a Brooklin host"""
-
-    def invoke_client_function(self, client):
-        client.stop_brooklin()
-
-
-class StopRandomBrooklinHost(StopBrooklinHost):
-    """Test step to stop a random Brooklin host in the cluster"""
-
-    def __init__(self, cluster):
-        super().__init__(hostname_getter=self.get_host)
-        self.cluster = cluster.value
-        self.host = None
-
-    def run_test(self):
-        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
-        super().run_test()
-
-    def get_host(self):
-        return self.host
-
-
-class KillBrooklinHost(ManipulateBrooklinHost):
-    """Test step to kill a Brooklin host"""
-
-    def __init__(self, skip_if_dead=False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.skip_if_dead = skip_if_dead
-
-    def invoke_client_function(self, client):
-        client.kill_brooklin(skip_if_dead=self.skip_if_dead)
-
-
-class KillRandomBrooklinHost(KillBrooklinHost):
-    """Test step to kill a random Brooklin host in the cluster"""
-
-    def __init__(self, cluster):
-        super().__init__(hostname_getter=self.get_host)
-        self.cluster = cluster.value
-        self.host = None
-
-    def run_test(self):
-        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
-        super().run_test()
-
-    def get_host(self):
-        return self.host
+    def __init__(self, cluster: BrooklinClusterChoice):
+        super().__init__(cluster=cluster, step_class=PingBrooklinHost)
 
 
 class KillBrooklinCluster(ManipulateBrooklinCluster):
     """Test step for killing Brooklin in an entire cluster"""
 
-    def __init__(self, skip_if_dead=False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.skip_if_dead = skip_if_dead
-
-    def process(self, host):
-        KillBrooklinHost(skip_if_dead=self.skip_if_dead, hostname_getter=lambda: host).run()
-
-
-class StartBrooklinHost(ManipulateBrooklinHost):
-    """Test step to start a Brooklin host"""
-
-    def invoke_client_function(self, client):
-        client.start_brooklin()
+    def __init__(self, cluster: BrooklinClusterChoice, skip_if_dead=False):
+        kill_brooklin_host = partial(KillBrooklinHost, skip_if_dead=skip_if_dead)
+        super().__init__(cluster=cluster, step_class=kill_brooklin_host)  # type: ignore
 
 
 class StartBrooklinCluster(ManipulateBrooklinCluster):
     """Test step for starting Brooklin in an entire cluster"""
 
-    def process(self, host):
-        StartBrooklinHost(hostname_getter=lambda: host).run()
-
-
-class PauseBrooklinHost(ManipulateBrooklinHost):
-    """Test step to pause the Brooklin process on a host"""
-
-    def invoke_client_function(self, client):
-        client.pause_brooklin()
-
-
-class PauseRandomBrooklinHost(PauseBrooklinHost):
-    """Test step to pause the Brooklin process on a random host in the cluster"""
-
-    def __init__(self, cluster):
-        super().__init__(hostname_getter=self.get_host)
-        self.cluster = cluster.value
-        self.host = None
-
-    def run_test(self):
-        self.host = get_random_host(self.cluster.fabric, self.cluster.tag)
-        super().run_test()
-
-    def get_host(self):
-        return self.host
-
-
-class ResumeBrooklinHost(ManipulateBrooklinHost):
-    """Test step to resume the Brooklin process on a host"""
-
-    def invoke_client_function(self, client):
-        client.resume_brooklin()
+    def __init__(self, cluster: BrooklinClusterChoice):
+        super().__init__(cluster=cluster, step_class=StartBrooklinHost)
