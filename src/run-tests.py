@@ -12,7 +12,8 @@ from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
     restart_kafka_cluster
 from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, DeleteTopics, ListTopics, \
-    ValidateTopicsDoNotExist, ValidateSourceAndDestinationTopicsMatch
+    ValidateTopicsDoNotExist, ValidateSourceAndDestinationTopicsMatch, CreateSourceTopics, \
+    ValidateDestinationTopicsExist, ProduceToSourceTopics, ConsumeFromDestinationTopics
 
 logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
@@ -129,6 +130,66 @@ class BasicTests(unittest.TestCase):
                              list_topics_destination_voyager_after_update, list_topics_destination_seas_after_update,
                              validate_voyager_topics_after_update, validate_seas_topics_after_update, kafka_audit_basic,
                              kafka_audit_new_topics, run_ekg, cleanup_seas_topics, validate_seas_topics_cleaned_up))
+
+    def test_multiple_topic_creation_with_traffic(self):
+        test_steps = []
+        control_topics_list = [f'voyager-api-bmm-certification-test-{i}' for i in range(10)]
+
+        def get_control_topics_list():
+            return control_topics_list
+
+        # TODO: Create list of topics matching experiment datastream whitelist
+
+        datastream_name = 'test_multiple_topic_creation_with_traffic'
+        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
+                                              topic_create=True, identity=False, passthrough=False,
+                                              partition_managed=True)
+        test_steps.append(control_datastream)
+
+        # TODO: Add a step for creating experiment datastream
+
+        sleep_before_topics_creation = Sleep(secs=60 * 5)
+        test_steps.append(sleep_before_topics_creation)
+
+        create_control_topics = CreateSourceTopics(topics=control_topics_list, delay_seconds=60 * 2)
+        test_steps.append(create_control_topics)
+
+        # TODO: Add test steps for creating topics matching the experiment datasteam whitelist
+
+        wait_for_topic_on_destination = ValidateDestinationTopicsExist(topics_getter=get_control_topics_list)
+        test_steps.append(wait_for_topic_on_destination)
+
+        # TODO: Add test steps to wait for topics on destination for the experiment datasteam whitelist
+
+        produce_traffic = ProduceToSourceTopics(topics=control_topics_list, num_records=10000, record_size=1000)
+        test_steps.append(produce_traffic)
+
+        # TODO: Add test steps for producing traffic to the experiment datasteam's new topics
+
+        sleep_after_producing_traffic = Sleep(secs=60 * 5)
+        test_steps.append(sleep_after_producing_traffic)
+
+        consume_records = ConsumeFromDestinationTopics(topics=control_topics_list, num_records=10000)
+        test_steps.append(consume_records)
+
+        # TODO: Add test steps for consuming records from the experiment datasteam's new topics
+
+        test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
+                                        endtime_getter=sleep_after_producing_traffic.end_time))
+
+        # TODO: Add a step for running audit on the experiment data-flow
+
+        test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
+                                         endtime_getter=sleep_after_producing_traffic.end_time))
+
+        # Clean-up the new topics created on the destination as part of the test
+        test_steps.append(DeleteTopics(topics_getter=get_control_topics_list, cluster=KafkaClusterChoice.DESTINATION))
+        test_steps.append(ValidateTopicsDoNotExist(topics_getter=get_control_topics_list,
+                                                   cluster=KafkaClusterChoice.DESTINATION))
+
+        # TODO: Add a step for cleaning up newly created topics on the destination for the experiment datastream
+
+        self.assertTrue(TestRunner('test_multiple_topic_creation_with_traffic').run(*test_steps))
 
     def test_brooklin_cluster_parallel_bounce(self):
         test_steps = restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)

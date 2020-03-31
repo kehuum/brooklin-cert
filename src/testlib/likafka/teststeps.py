@@ -1,12 +1,16 @@
+import random
+import string
+import uuid
+
 from abc import abstractmethod
 from agent.client.kafka import XMLRPCKafkaClient
+from kafka import KafkaProducer, KafkaConsumer, TopicPartition
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
-from testlib.core.teststeps import RunPythonCommand, TestStep
-from testlib.core.utils import OperationFailedError
-from testlib.lid import LidClient
+from testlib.core.teststeps import RunPythonCommand, TestStep, Sleep
+from testlib.core.utils import OperationFailedError, retry
 from testlib.likafka.admin import AdminClient
 from testlib.likafka.cruisecontrol import CruiseControlClient
-from testlib.likafka.environment import KafkaClusterChoice, KAFKA_PRODUCT_NAME
+from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
 
 
@@ -146,8 +150,7 @@ class ValidateTopicsDoNotExist(TestStep):
 
     # We require specifying one of the predefined Kafka clusters to make
     # sure we never run this step against other Kafka clusters by mistake.
-    def __init__(self, topics_getter, cluster=KafkaClusterChoice.DESTINATION, ssl_certfile=DEFAULT_SSL_CERTFILE,
-                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, topics_getter, cluster=KafkaClusterChoice.DESTINATION, ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topics_getter:
             raise ValueError(f'Invalid deleted topics getter: {topics_getter}')
@@ -155,16 +158,13 @@ class ValidateTopicsDoNotExist(TestStep):
             raise ValueError(f'Invalid cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
-        if not ssl_keyfile:
-            raise ValueError(f'Key file must be specified')
 
         self.topics_getter = topics_getter
         self.cluster = cluster.value
         self.ssl_certfile = ssl_certfile
-        self.ssl_keyfile = ssl_keyfile
 
     def run_test(self):
-        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile, self.ssl_keyfile)
+        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
         current_topics_set = set(client.list_topics())
         deleted_topics_set = set(self.topics_getter())
 
@@ -173,18 +173,43 @@ class ValidateTopicsDoNotExist(TestStep):
                                        f'{", ".join(deleted_topics_set.intersection(current_topics_set))}')
 
 
+class ValidateDestinationTopicsExist(TestStep):
+    """Test step which validates that a list of topics get created on the destination Kafka cluster with retries"""
+
+    def __init__(self, topics_getter, ssl_certfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topics_getter:
+            raise ValueError(f'Invalid topics getter: {topics_getter}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+
+        self.topics_getter = topics_getter
+        self.cluster = KafkaClusterChoice.DESTINATION.value
+        self.ssl_certfile = ssl_certfile
+        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
+        self.topics = None
+
+    def run_test(self):
+        self.topics = set(self.topics_getter())
+        if not self.topics_exist():
+            raise OperationFailedError(f'Not all topics {self.topics} have not been created on the destination yet')
+
+    @retry(tries=10, delay=60, backoff=2)
+    def topics_exist(self):
+        all_topics = set(self.client.list_topics())
+        return self.topics.issubset(all_topics)
+
+
 class CreateSourceTopic(TestStep):
     """Test step for creating a topic in the source Kafka cluster"""
 
     def __init__(self, topic_name, partitions=8, replication_factor=3, topic_configs=None,
-                 ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_keyfile=DEFAULT_SSL_CERTFILE):
+                 ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topic_name:
             raise ValueError(f'Invalid topic name: {topic_name}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
-        if not ssl_keyfile:
-            raise ValueError(f'Key file must be specified')
 
         self.cluster = KafkaClusterChoice.SOURCE.value
         self.topic_name = topic_name
@@ -192,7 +217,6 @@ class CreateSourceTopic(TestStep):
         self.replication_factor = replication_factor
         self.topic_configs = topic_configs
         self.ssl_certfile = ssl_certfile
-        self.ssl_keyfile = ssl_keyfile
         self.client = None
 
     def run_test(self):
@@ -203,25 +227,55 @@ class CreateSourceTopic(TestStep):
         self.client.delete_topic(self.topic_name)
 
 
+class CreateSourceTopics(TestStep):
+    """Test step for creating a list of topics in batches with optional delays"""
+
+    def __init__(self, topics, batch_size=1, delay_seconds=120):
+        super().__init__()
+
+        if not topics:
+            raise ValueError(f'Invalid topic list: {topics}')
+        if batch_size < 1:
+            raise ValueError(f'Batch size must be >= 1, invalid batch size: {batch_size}')
+        if delay_seconds < 0:
+            raise ValueError(f'Delay in seconds must be >= 0, invalid delay: {delay_seconds}')
+
+        self.topics = topics
+        self.batch_size = batch_size
+        self.delay_seconds = delay_seconds
+
+    def run_test(self):
+        for i in range(0, len(self.topics), self.batch_size):
+            topic_batch = self.topics[i:i + self.batch_size]
+
+            for topic in topic_batch:
+                CreateSourceTopic(topic_name=topic).run()
+
+            if self.delay_seconds > 0:
+                Sleep(secs=self.delay_seconds).run()
+
+    def cleanup(self):
+        DeleteTopics(topics_getter=self.get_topics, cluster=KafkaClusterChoice.SOURCE).run()
+
+    def get_topics(self):
+        return self.topics
+
+
 class ListTopics(TestStep):
     """Test step for listing topics in a Kafka cluster, optionally filtered by a topic prefix"""
 
     # We require specifying one of the predefined Kafka clusters to make
     # sure we never run this step against other Kafka clusters by mistake.
-    def __init__(self, cluster: KafkaClusterChoice, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE,
-                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, cluster: KafkaClusterChoice, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid Kafka cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
-        if not ssl_keyfile:
-            raise ValueError(f'Key file must be specified')
 
         self.cluster = cluster.value
         self.topic_prefix_filter = topic_prefix_filter
         self.ssl_certfile = ssl_certfile
-        self.ssl_keyfile = ssl_keyfile
         self.topics = None
 
     def run_test(self):
@@ -237,8 +291,7 @@ class DeleteTopics(TestStep):
 
     # We require specifying one of the predefined Kafka clusters to make
     # sure we never run this step against other Kafka clusters by mistake.
-    def __init__(self, topics_getter, cluster: KafkaClusterChoice, ssl_certfile=DEFAULT_SSL_CERTFILE,
-                 ssl_keyfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, topics_getter, cluster: KafkaClusterChoice, ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topics_getter:
             raise ValueError(f'Invalid topic topics getter: {topics_getter}')
@@ -246,13 +299,10 @@ class DeleteTopics(TestStep):
             raise ValueError(f'Invalid Kafka cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
-        if not ssl_keyfile:
-            raise ValueError(f'Key file must be specified')
 
         self.topics_getter = topics_getter
         self.cluster = cluster.value
         self.ssl_certfile = ssl_certfile
-        self.ssl_keyfile = ssl_keyfile
 
     def run_test(self):
         client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
@@ -262,6 +312,149 @@ class DeleteTopics(TestStep):
         # to some flakiness
         for topic in topics_to_delete:
             client.delete_topic(topic)
+
+
+class ConsumeFromDestinationTopic(TestStep):
+    """Test step to consume from a topic in the destination Kafka cluster"""
+
+    def __init__(self, topic, num_records, ssl_cafile=DEFAULT_SSL_CAFILE, ssl_certfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topic:
+            raise ValueError(f'Invalid topic: {topic}')
+        if num_records < 1:
+            raise ValueError(f'Invalid num records: {num_records}')
+        if not ssl_cafile:
+            raise ValueError(f'SSL CA file must be specified')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+
+        self.cluster = KafkaClusterChoice.DESTINATION.value
+        self.topic = topic
+        self.num_records = num_records
+        self.ssl_cafile = ssl_cafile
+        self.ssl_certfile = ssl_certfile
+
+    def run_test(self):
+        keys_consumed = set()
+        consumer = KafkaConsumer(group_id=f'{uuid.uuid4()}',
+                                 auto_offset_reset='earliest',
+                                 bootstrap_servers=[self.cluster.bootstrap_servers],
+                                 security_protocol="SSL",
+                                 ssl_check_hostname=False,
+                                 ssl_cafile=self.ssl_cafile,
+                                 ssl_certfile=self.ssl_certfile,
+                                 ssl_keyfile=self.ssl_certfile)
+
+        partitions = consumer.partitions_for_topic(topic=self.topic)
+
+        for partition in partitions:
+            tp = TopicPartition(topic=self.topic, partition=partition)
+
+            # Need to know when to stop consuming. Checking the end offset before we start to consume can give us
+            # an exit strategy. This means every TopicPartition will need to be consumed one at a time since each
+            # will have their own end offsets.
+            end_offset = consumer.end_offsets(partitions=[tp])
+            beginning_offset = consumer.beginning_offsets(partitions=[tp])
+
+            # Only try to consume if we do have data in the topic
+            if end_offset != 0 and end_offset != beginning_offset:
+                consumer.assign([tp])
+                consumer.seek_to_beginning()
+                for message in consumer:
+                    if not message.value:
+                        raise OperationFailedError(f'Consumed message with empty value: {message}')
+
+                    keys_consumed.add(int(message.key))
+                    if message.offset == end_offset[tp] - 1:
+                        break
+
+        sorted_unique_keys = list(sorted(keys_consumed))
+
+        key_count = len(sorted_unique_keys)
+        if key_count < self.num_records:
+            raise OperationFailedError(f'Expected {self.num_records} records, but found only {key_count} records')
+
+        for i, key in enumerate(sorted_unique_keys):
+            if key != i:
+                raise OperationFailedError(f'Expected {i} key, but found key {key} instead')
+
+
+class ConsumeFromDestinationTopics(TestStep):
+    """Test step to consume from a list of topics in the destination Kafka cluster"""
+
+    def __init__(self, topics, num_records):
+        super().__init__()
+        if not topics:
+            raise ValueError(f'Invalid topic list: {topics}')
+        if num_records < 1:
+            raise ValueError(f'Invalid num records: {num_records}')
+
+        self.topics = topics
+        self.num_records = num_records
+
+    def run_test(self):
+        for topic in self.topics:
+            ConsumeFromDestinationTopic(topic=topic, num_records=self.num_records).run()
+
+
+class ProduceToSourceTopic(TestStep):
+    """Test step to produce load to a topic in the source Kafka cluster"""
+
+    def __init__(self, topic, num_records=1000, record_size=1000, ssl_cafile=DEFAULT_SSL_CAFILE,
+                 ssl_certfile=DEFAULT_SSL_CERTFILE):
+        super().__init__()
+        if not topic:
+            raise ValueError(f'Invalid topic: {topic}')
+        if num_records < 1:
+            raise ValueError(f'Invalid num records: {num_records}')
+        if record_size < 1:
+            raise ValueError(f'Invalid record size: {record_size}')
+        if not ssl_cafile:
+            raise ValueError(f'SSL CA file must be specified')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+
+        self.cluster = KafkaClusterChoice.SOURCE.value
+        self.topic = topic
+        self.num_records = num_records
+        self.record_size = record_size
+        self.ssl_cafile = ssl_cafile
+        self.ssl_certfile = ssl_certfile
+
+    def run_test(self):
+        producer = KafkaProducer(bootstrap_servers=[self.cluster.bootstrap_servers],
+                                 security_protocol="SSL",
+                                 ssl_check_hostname=False,
+                                 ssl_cafile=self.ssl_cafile,
+                                 ssl_certfile=self.ssl_certfile,
+                                 ssl_keyfile=self.ssl_certfile,
+                                 acks=1)
+
+        for i in range(self.num_records):
+            payload = str.encode(''.join(random.choices(string.ascii_letters + string.digits, k=self.record_size)))
+            key = str.encode(f'{i}')
+            producer.send(topic=self.topic, key=key, value=payload)
+
+
+class ProduceToSourceTopics(TestStep):
+    """Test step to produce load to a set of topics in the source Kafka cluster"""
+
+    def __init__(self, topics, num_records=1000, record_size=1000):
+        super().__init__()
+        if not topics:
+            raise ValueError(f'Invalid topic list: {topics}')
+        if num_records < 1:
+            raise ValueError(f'Invalid num records: {num_records}')
+        if record_size < 1:
+            raise ValueError(f'Invalid record size: {record_size}')
+
+        self.topics = topics
+        self.num_records = num_records
+        self.record_size = record_size
+
+    def run_test(self):
+        for topic in self.topics:
+            ProduceToSourceTopic(topic=topic, num_records=self.num_records, record_size=self.record_size).run()
 
 
 class PerformKafkaPreferredLeaderElection(TestStep):
