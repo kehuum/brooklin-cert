@@ -56,7 +56,8 @@ class KafkaDevAgentClient(KafkaCommands):
 
     def start_kafka(self):
         start_kafka_url = self.base_url + 'start-kafka'
-        self.__get_request(url=start_kafka_url, error_msg=f'Failed to start kafka on the host {self.hostname}')
+        self.__get_request(url=start_kafka_url, error_msg=f'Failed to start kafka on the host {self.hostname}',
+                           check_for_success=True)
 
     def stop_kafka(self):
         # TODO: implement this method
@@ -67,16 +68,16 @@ class KafkaDevAgentClient(KafkaCommands):
     def kill_kafka(self):
         # Get the suid to use for killing Kafka
         kill_kafka_url = self.base_url + 'kill-kafka'
-        suid = self.__get_request(url=kill_kafka_url,
-                                  error_msg=f'Failed to retrieve suid to kill kafka on the host {self.hostname}',
-                                  check_for_success=False)
+        response = self.__get_request(url=kill_kafka_url,
+                                      error_msg=f'Failed to retrieve suid to kill kafka on the host {self.hostname}')
 
         # Kill kafka passing the suid retrieved in the previous step
-        kill_kafka_url += f'/{suid}'
-        self.__get_request(url=kill_kafka_url,
-                           error_msg=f'Failed to kill kafka on the host {self.hostname}')
+        kill_kafka_url += f'/{response.text}'
+        # Checking the status message for success is unreliable, and often returns a message saying the process was
+        # not killed, even though it does die.
+        self.__get_request(url=kill_kafka_url, error_msg=f'Failed to kill kafka on the host {self.hostname}')
 
-    def __get_request(self, url, error_msg, check_for_success=True):
+    def __get_request(self, url, error_msg, check_for_success=False):
         response = send_request(send_fn=lambda: requests.get(url), error_message=error_msg)
         if not response.text:
             raise OperationFailedError(error_msg)

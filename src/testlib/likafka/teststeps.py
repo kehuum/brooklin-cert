@@ -3,7 +3,10 @@ import string
 import uuid
 
 from abc import abstractmethod
-from agent.client.kafka import XMLRPCKafkaClient
+from contextlib import AbstractContextManager, nullcontext
+from typing import Type
+from agent.api.kafka import KafkaCommands
+from agent.client.kafka import KafkaDevAgentClient
 from kafka import KafkaProducer, KafkaConsumer, TopicPartition
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep, Sleep
@@ -33,8 +36,8 @@ class RunKafkaAudit(RunPythonCommand):
     def main_command(self):
         return 'kafka-audit-v2.py ' \
                f'--topicsfile {self.topics_file} ' \
-               f'--startms {self.starttime_getter()} ' \
-               f'--endms {self.endtime_getter()}'
+               f'--startms {self.starttime_getter() * 1000} ' \
+               f'--endms {self.endtime_getter() * 1000}'
 
 
 class ManipulateKafkaHost(TestStep):
@@ -45,22 +48,32 @@ class ManipulateKafkaHost(TestStep):
         - Implement the invoke_client_cleanup_function function if any cleanup steps are required
     """
 
-    def __init__(self, hostname_getter):
+    def __init__(self, hostname_getter, client_class: Type[KafkaCommands] = KafkaDevAgentClient):
         super().__init__()
         if not hostname_getter:
             raise ValueError(f'Invalid hostname getter provided: {hostname_getter}')
+        if not client_class:
+            raise ValueError(f'Invalid client class provided: {client_class}')
 
         self.hostname_getter = hostname_getter
+        self.client_class = client_class
         self.host = None
+
+    def __create_client(self, hostname):
+        # If client_class supports context management, use it to create a client directly
+        if issubclass(self.client_class, AbstractContextManager):
+            return self.client_class(hostname=hostname)  # type: ignore
+        # Otherwise, wrap the created client in a null context manager
+        return nullcontext(enter_result=self.client_class(hostname=hostname))  # type: ignore
 
     def run_test(self):
         self.host = self.hostname_getter()
-        with XMLRPCKafkaClient(hostname=self.host) as client:
+        with self.__create_client(hostname=self.host) as client:
             self.invoke_client_function(client)
 
     def cleanup(self):
         self.host = self.hostname_getter()
-        with XMLRPCKafkaClient(hostname=self.host) as client:
+        with self.__create_client(hostname=self.host) as client:  # type: ignore
             self.invoke_client_cleanup_function(client)
 
     def get_host(self):

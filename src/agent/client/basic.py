@@ -1,11 +1,13 @@
 import logging
+
+from contextlib import AbstractContextManager
 from xmlrpc.client import ServerProxy
 
 from agent.api import DEFAULT_PORT
 from agent.api.basic import BasicCommands
 
 
-class XMLRPCClientBase(object):
+class XMLRPCClientBase(AbstractContextManager):
     """This is the base class that provides the
     common functionality of all XML RPC clients."""
     def __init__(self, hostname, port=DEFAULT_PORT):
