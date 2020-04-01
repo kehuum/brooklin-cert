@@ -51,7 +51,7 @@ def get_topic_list_from_file(topics_file):
 
 
 def get_audit_counts(topic, start_ms, end_ms):
-    counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=cert'
+    counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=brooklin-cert'
     url = BASE_URL + counts_api
     log.debug('Querying counts for topic {0} with URL: "{1}"'.format(topic, url))
     r = requests.get(url)
