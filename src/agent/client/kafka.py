@@ -56,28 +56,30 @@ class KafkaDevAgentClient(KafkaCommands):
 
     def start_kafka(self):
         start_kafka_url = self.base_url + 'start-kafka'
-        self.__get_request(url=start_kafka_url, error_msg=f'Failed to start kafka on the host {self.hostname}',
-                           check_for_success=True)
+        self.__send_get_request(url=start_kafka_url, error_msg=f'Failed to start kafka on the host {self.hostname}',
+                                check_for_success=True)
 
     def stop_kafka(self):
-        # TODO: implement this method
-        # This either requires the kafka-dev-agent to be extended to accept a stop command, or it needs LidClient to be
-        # extended to take a specific hostname
-        pass
+        self.__send_suid_command(command='stop-kafka',
+                                 error_message=f'Failed to stop kafka on the host {self.hostname}')
 
     def kill_kafka(self):
-        # Get the suid to use for killing Kafka
-        kill_kafka_url = self.base_url + 'kill-kafka'
-        response = self.__get_request(url=kill_kafka_url,
-                                      error_msg=f'Failed to retrieve suid to kill kafka on the host {self.hostname}')
+        self.__send_suid_command(command='kill-kafka',
+                                 error_message=f'Failed to kill kafka on the host {self.hostname}')
 
-        # Kill kafka passing the suid retrieved in the previous step
-        kill_kafka_url += f'/{response.text}'
-        # Checking the status message for success is unreliable, and often returns a message saying the process was
-        # not killed, even though it does die.
-        self.__get_request(url=kill_kafka_url, error_msg=f'Failed to kill kafka on the host {self.hostname}')
+    def __send_suid_command(self, command, error_message):
+        # Get the suid to use
+        action_url = self.base_url + command
+        response = self.__send_get_request(url=action_url,
+                                           error_msg=f'Failed to retrieve suid on the host {self.hostname}')
 
-    def __get_request(self, url, error_msg, check_for_success=False):
+        # Perform kafka action passing the suid retrieved in the previous step
+        action_url += f'/{response.text}'
+        # Checking the status message for success is unreliable, and often returns a message saying the action was
+        # not performed, even though it was.
+        self.__send_get_request(url=action_url, error_msg=error_message)
+
+    def __send_get_request(self, url, error_msg, check_for_success=False):
         response = send_request(send_fn=lambda: requests.get(url), error_message=error_msg)
         if not response.text:
             raise OperationFailedError(error_msg)
