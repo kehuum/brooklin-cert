@@ -128,6 +128,12 @@ class BasicTests(unittest.TestCase):
 
         # TODO: Create list of topics matching experiment datastream whitelist
 
+        # Clean-up the topics we expect to create on the destination as part of the test
+        test_steps.append(DeleteTopics(topics_getter=get_control_topics_list, cluster=KafkaClusterChoice.DESTINATION,
+                                       skip_on_failure=True))
+
+        # TODO: Add a step for cleaning up topics we expect to create on the destination for the experiment datastream
+
         datastream_name = 'test_multiple_topic_creation_with_traffic'
         control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
                                               topic_create=True, identity=False, passthrough=False,
@@ -169,13 +175,6 @@ class BasicTests(unittest.TestCase):
 
         test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                          endtime_getter=sleep_after_producing_traffic.end_time))
-
-        # Clean-up the new topics created on the destination as part of the test
-        test_steps.append(DeleteTopics(topics_getter=get_control_topics_list, cluster=KafkaClusterChoice.DESTINATION))
-        test_steps.append(ValidateTopicsDoNotExist(topics_getter=get_control_topics_list,
-                                                   cluster=KafkaClusterChoice.DESTINATION))
-
-        # TODO: Add a step for cleaning up newly created topics on the destination for the experiment datastream
 
         self.assertTrue(TestRunner('test_multiple_topic_creation_with_traffic').run(*test_steps))
 
