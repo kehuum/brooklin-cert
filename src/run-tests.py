@@ -63,8 +63,14 @@ class BasicTests(unittest.TestCase):
                                                                   run_ekg))
 
     def test_update_datastream_whitelist(self):
-        list_topics_source_voyager = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefix_filter='voyager-api')
-        list_topics_source_seas = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefix_filter='seas-')
+        list_topics_seas = ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=['seas-'])
+        cleanup_topics_seas = \
+            DeleteTopics(topics_getter=list_topics_seas.get_topics, cluster=KafkaClusterChoice.DESTINATION)
+
+        # TODO: Add a step for cleaning up the experiment prefixed seas topics
+
+        topic_prefixes = ['voyager-api', 'seas-']
+        list_topics_source = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=topic_prefixes)
 
         datastream_name = 'test_update_datastream_whitelist'
         control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
@@ -82,18 +88,12 @@ class BasicTests(unittest.TestCase):
 
         sleep_after_update = Sleep(secs=60 * 10)
 
-        list_topics_destination_voyager_after_update = \
-            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefix_filter='voyager-api')
-        list_topics_destination_seas_after_update = \
-            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefix_filter='seas-')
-        validate_voyager_topics_after_update = \
+        list_topics_destination_after_update = \
+            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=topic_prefixes)
+        validate_topics_after_update = \
             ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source_voyager.get_topics,
-                destination_topics_getter=list_topics_destination_voyager_after_update.get_topics)
-        validate_seas_topics_after_update = \
-            ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source_seas.get_topics,
-                destination_topics_getter=list_topics_destination_seas_after_update.get_topics)
+                source_topics_getter=list_topics_source.get_topics,
+                destination_topics_getter=list_topics_destination_after_update.get_topics)
 
         # TODO: Add a step for validating topics for experiment datastream's whitelist
 
@@ -114,22 +114,10 @@ class BasicTests(unittest.TestCase):
         run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                  endtime_getter=sleep_after_update.end_time)
 
-        # Clean-up the new topics created as part of the new whitelist
-        cleanup_seas_topics = \
-            DeleteTopics(topics_getter=list_topics_destination_seas_after_update.get_topics,
-                         cluster=KafkaClusterChoice.DESTINATION)
-        validate_seas_topics_cleaned_up = \
-            ValidateTopicsDoNotExist(topics_getter=list_topics_destination_seas_after_update.get_topics,
-                                     cluster=KafkaClusterChoice.DESTINATION)
-
-        # TODO: Add a step to remove and validate topic prefix of experiment datastream's second whitelist
-
         self.assertTrue(TestRunner('test_update_datastream_whitelist')
-                        .run(list_topics_source_voyager, list_topics_source_seas, control_datastream,
-                             sleep_before_update, update_datastream, sleep_after_update,
-                             list_topics_destination_voyager_after_update, list_topics_destination_seas_after_update,
-                             validate_voyager_topics_after_update, validate_seas_topics_after_update, kafka_audit_basic,
-                             kafka_audit_new_topics, run_ekg, cleanup_seas_topics, validate_seas_topics_cleaned_up))
+                        .run(list_topics_seas, cleanup_topics_seas, list_topics_source, control_datastream, sleep_before_update,
+                             update_datastream, sleep_after_update, list_topics_destination_after_update,
+                             validate_topics_after_update, kafka_audit_basic, kafka_audit_new_topics, run_ekg))
 
     def test_multiple_topic_creation_with_traffic(self):
         test_steps = []

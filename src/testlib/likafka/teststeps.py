@@ -1,4 +1,5 @@
 import random
+import re
 import string
 import uuid
 
@@ -275,25 +276,29 @@ class CreateSourceTopics(TestStep):
 
 
 class ListTopics(TestStep):
-    """Test step for listing topics in a Kafka cluster, optionally filtered by a topic prefix"""
+    """Test step for listing topics in a Kafka cluster, optionally filtered by multiple topic prefixes"""
 
     # We require specifying one of the predefined Kafka clusters to make
     # sure we never run this step against other Kafka clusters by mistake.
-    def __init__(self, cluster: KafkaClusterChoice, topic_prefix_filter='', ssl_certfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, cluster: KafkaClusterChoice, topic_prefixes_filter=None, ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid Kafka cluster: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
+        if topic_prefixes_filter is None:
+            topic_prefixes_filter = ['']
 
         self.cluster = cluster.value
-        self.topic_prefix_filter = topic_prefix_filter
+        self.topic_prefixes_filter = topic_prefixes_filter
         self.ssl_certfile = ssl_certfile
         self.topics = None
 
     def run_test(self):
+        prefixes = '|'.join(re.escape(p) for p in self.topic_prefixes_filter)
+        re_prefixes = f'^({prefixes})'
         client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
-        self.topics = [t for t in client.list_topics() if t.startswith(self.topic_prefix_filter)]
+        self.topics = [t for t in client.list_topics() if re.match(re_prefixes, t)]
 
     def get_topics(self):
         return self.topics
@@ -304,7 +309,8 @@ class DeleteTopics(TestStep):
 
     # We require specifying one of the predefined Kafka clusters to make
     # sure we never run this step against other Kafka clusters by mistake.
-    def __init__(self, topics_getter, cluster: KafkaClusterChoice, ssl_certfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, topics_getter, cluster: KafkaClusterChoice, skip_on_failure=False, validate=True,
+                 ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topics_getter:
             raise ValueError(f'Invalid topic topics getter: {topics_getter}')
@@ -314,17 +320,26 @@ class DeleteTopics(TestStep):
             raise ValueError(f'Cert file must be specified')
 
         self.topics_getter = topics_getter
-        self.cluster = cluster.value
+        self.cluster = cluster
+        self.skip_on_failure = skip_on_failure
+        self.validate = validate
         self.ssl_certfile = ssl_certfile
 
     def run_test(self):
-        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
+        client = AdminClient([self.cluster.value.bootstrap_servers], self.ssl_certfile)
         topics_to_delete = self.topics_getter()
 
         # Deleting a single topic at a time because bulk topic deletion needs much longer timeout and may lead
         # to some flakiness
         for topic in topics_to_delete:
-            client.delete_topic(topic)
+            try:
+                client.delete_topic(topic)
+            except Exception as e:
+                if not self.skip_on_failure:
+                    raise e
+
+        if self.validate:
+            ValidateTopicsDoNotExist(topics_getter=self.topics_getter, cluster=self.cluster).run()
 
 
 class ConsumeFromDestinationTopic(TestStep):
