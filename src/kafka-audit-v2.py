@@ -134,23 +134,26 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
     for topic in topic_counts:
         lva1count = 0
         lor1count = 0
-        lva1_topic_missing = 0
-        lor1_topic_missing = 0
+        skip_count = False
 
         try:
             lva1count = topic_counts[topic]['totalsPerTier']['kafka-lva1-cert']
         except:
             log.debug('Counts missing for kafka-lva1-cert tier for topic: {0}'.format(topic))
             lva1_topic_missing = lva1_topic_missing + 1
+            skip_count = True
 
         try:
             lor1count = topic_counts[topic]['totalsPerTier']['kafka-lor1-cert']
         except:
             log.debug('Counts missing for kafka-lor1-cert tier for topic: {0}'.format(topic))
             lor1_topic_missing = lor1_topic_missing + 1
+            skip_count = True
 
-        total_prod_lva1 += lva1count
-        total_prod_lor1 += lor1count
+        # Only count for topics that have counts for both prod-lva1 and prod-lor1
+        if not skip_count:
+            total_prod_lva1 += lva1count
+            total_prod_lor1 += lor1count
 
     value = float(total_prod_lor1 / float(total_prod_lva1 or 1) * 100)
     print('total_prod_lor1: %s, total_prod_lva1: %s, ratio: %s %%' % (total_prod_lor1, total_prod_lva1, value))
