@@ -388,11 +388,16 @@ class ConsumeFromDestinationTopic(TestStep):
             if end_offset != 0 and end_offset != beginning_offset:
                 consumer.assign([tp])
                 consumer.seek_to_beginning()
+                previous_key = -1
+                max_key = -1
                 for message in consumer:
-                    if not message.value:
-                        raise OperationFailedError(f'Consumed message with empty value: {message}')
-
-                    keys_consumed.add(int(message.key))
+                    ConsumeFromDestinationTopic.__validate_record(message=message, keys_consumed=keys_consumed,
+                                                                  previous_key=previous_key, max_key=max_key)
+                    key = int(message.key)
+                    keys_consumed.add(key)
+                    if key > max_key:
+                        max_key = key
+                    previous_key = key
                     if message.offset == end_offset[tp] - 1:
                         break
 
@@ -405,6 +410,30 @@ class ConsumeFromDestinationTopic(TestStep):
         for i, key in enumerate(sorted_unique_keys):
             if key != i:
                 raise OperationFailedError(f'Expected {i} key, but found key {key} instead')
+
+    @staticmethod
+    def __validate_record(message, keys_consumed, previous_key, max_key):
+        if not message.value:
+            raise OperationFailedError(f'Consumed message with empty value: {message}')
+
+        # This will validate that if we see smaller keys than expected, we've seen them before. So this will work
+        # for sequences such as [1, 2, 5, 1, 2, 5, 8]
+        # This will not work for validating that when a sequence repeats, we get all the elements from that
+        # sequence up to the current max seen. Thus, if we skip any keys, we will not be able to identify that they were
+        # skipped. Sequences such as [1, 2, 5, 8, 1, 2, 8, 12] will pass, even though 5 was skipped during the replay.
+        #
+        # An isSublist() function will be need to validate the order every time, and can be quite expensive since
+        # it involves maintaining a list of all unique elements seen, seeking to the first element we get out of order
+        # in this list, and tracking and validating the full sublist is indeed a sublist of the original list for each
+        # new element we get up to the max element seen so far.
+        key = int(message.key)
+        if key < 0:
+            raise OperationFailedError(f'Invalid key found: {key}')
+        if key < previous_key and key not in keys_consumed:
+            raise OperationFailedError(f'Current key {key} is less than previous key {previous_key} and is not found'
+                                       'in keys consumed set')
+        if key < max_key and key not in keys_consumed:
+            raise OperationFailedError(f'Current key {key} is less than max key {max_key} but was not seen before')
 
 
 class ConsumeFromDestinationTopics(TestStep):
