@@ -54,7 +54,9 @@ def get_audit_counts(topic, start_ms, end_ms):
     counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=brooklin-cert'
     url = BASE_URL + counts_api
     log.debug('Querying counts for topic {0} with URL: "{1}"'.format(topic, url))
-    r = requests.get(url)
+    # Send the request with a connect timeout of 10 seconds and read timeout of 10 seconds to prevent waiting too
+    # long to receive a response
+    r = requests.get(url, timeout=(10, 10))
     if r.status_code == requests.codes.ok:
         return r.json()
     print('Error in processing topic %s' % topic)
