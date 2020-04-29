@@ -121,7 +121,7 @@ class RunEkgAnalysis(RunPythonCommand):
     @property
     def main_command(self):
         return 'ekg-client.py ' \
-               '--cf prod-lor1 --ct cert.control ' \
-               '--ef prod-lor1 --et cert.candidate ' \
+               '--cf prod-lor1 --ct brooklin.cert.control ' \
+               '--ef prod-lor1 --et brooklin.cert.candidate ' \
                f'-s {self.starttime_getter()} ' \
                f'-e {self.endtime_getter()}'

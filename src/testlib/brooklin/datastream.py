@@ -1,5 +1,9 @@
 import json
 
+from collections import namedtuple
+from enum import Enum
+from testlib.brooklin.environment import BrooklinClusterChoice
+
 
 class Datastream(object):
     """Represents a Brooklin datastream
@@ -36,3 +40,23 @@ class Datastream(object):
     def whitelist(self):
         conn_str = self.datastream.get("source", {}).get("connectionString", '')
         return conn_str[conn_str.rfind('/') + 1:]
+
+
+DatastreamCreationInfo = namedtuple('DatastreamCreationInfo', ['cluster', 'num_tasks', 'topic_create', 'identity',
+                                                               'passthrough', 'partition_managed'])
+
+
+class DatastreamConfigChoice(Enum):
+    CONTROL = DatastreamCreationInfo(cluster=BrooklinClusterChoice.CONTROL,
+                                     num_tasks=120,
+                                     topic_create=True,
+                                     identity=False,
+                                     passthrough=False,
+                                     partition_managed=False)
+
+    EXPERIMENT = DatastreamCreationInfo(cluster=BrooklinClusterChoice.EXPERIMENT,
+                                        num_tasks=120,
+                                        topic_create=True,
+                                        identity=False,
+                                        passthrough=False,
+                                        partition_managed=True)

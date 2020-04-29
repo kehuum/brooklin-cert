@@ -4,6 +4,7 @@ from abc import abstractmethod
 from functools import partial
 from typing import Type
 from agent.client.brooklin import XMLRPCBrooklinClient
+from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.core.teststeps import RunPythonCommand, TestStep, GetRandomHostMixIn
 from testlib.core.utils import OperationFailedError
@@ -18,12 +19,11 @@ DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
-    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='basic-mirroring-datastream',
-                 whitelist='^voyager-api.*', num_tasks=120, topic_create=True, identity=False, passthrough=False,
-                 partition_managed=True, cert='identity.p12'):
+    def __init__(self, datastream_config: DatastreamConfigChoice, name='basic-mirroring-datastream',
+                 whitelist='^voyager-api.*', cert='identity.p12'):
         super().__init__()
-        if not cluster:
-            raise ValueError(f'Invalid cluster choice: {cluster}')
+        if not datastream_config:
+            raise ValueError(f'Invalid datastream creation config: {datastream_config}')
         if not name:
             raise ValueError(f'Invalid name: {name}')
         if not whitelist:
@@ -31,14 +31,14 @@ class CreateDatastream(RunPythonCommand):
         if not cert:
             raise ValueError(f'Invalid cert: {cert}')
 
-        self.cluster = cluster.value
+        self.cluster = datastream_config.value.cluster.value
+        self.num_tasks = datastream_config.value.num_tasks
+        self.topic_create = datastream_config.value.topic_create
+        self.identity = datastream_config.value.identity
+        self.passthrough = datastream_config.value.passthrough
+        self.partition_managed = datastream_config.value.partition_managed
         self.name = name
         self.whitelist = whitelist
-        self.num_tasks = num_tasks
-        self.topic_create = topic_create
-        self.identity = identity
-        self.passthrough = passthrough
-        self.partition_managed = partition_managed
         self.cert = cert
 
     @property

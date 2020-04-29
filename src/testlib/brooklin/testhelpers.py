@@ -1,6 +1,7 @@
 from testlib.brooklin.teststeps import CreateDatastream, GetBrooklinLeaderHost, BrooklinClusterChoice, \
     KillBrooklinHost, KillRandomBrooklinHost, StartBrooklinHost, StopBrooklinHost, StopRandomBrooklinHost, \
     PauseBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost
+from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
@@ -8,8 +9,7 @@ from testlib.likafka.teststeps import RunKafkaAudit
 
 def kill_brooklin_host(datastream_name, is_leader):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -56,8 +56,7 @@ def kill_brooklin_host(datastream_name, is_leader):
 
 def stop_brooklin_host(datastream_name, is_leader):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -104,8 +103,7 @@ def stop_brooklin_host(datastream_name, is_leader):
 
 def pause_resume_brooklin_host(datastream_name, is_leader):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -152,8 +150,7 @@ def pause_resume_brooklin_host(datastream_name, is_leader):
 
 def restart_brooklin_cluster(datastream_name, host_concurrency):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream

@@ -1,4 +1,5 @@
-from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice
+from testlib.brooklin.datastream import DatastreamConfigChoice
+from testlib.brooklin.teststeps import CreateDatastream
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKafkaAudit, StopRandomKafkaHost, \
@@ -7,8 +8,7 @@ from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKa
 
 def kill_kafka_broker(datastream_name, kafka_cluster):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -40,8 +40,7 @@ def kill_kafka_broker(datastream_name, kafka_cluster):
 
 def stop_kafka_broker(datastream_name, kafka_cluster):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -73,8 +72,7 @@ def stop_kafka_broker(datastream_name, kafka_cluster):
 
 def perform_kafka_ple(datastream_name, kafka_cluster):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream
@@ -101,8 +99,7 @@ def perform_kafka_ple(datastream_name, kafka_cluster):
 
 def restart_kafka_cluster(datastream_name, kafka_cluster, host_concurrency):
     test_steps = []
-    control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                          topic_create=True, identity=False, passthrough=False, partition_managed=True)
+    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
     test_steps.append(control_datastream)
 
     # TODO: Add a step for creating experiment datastream

@@ -3,6 +3,7 @@
 import logging
 import unittest
 
+from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
 from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host, \
     restart_brooklin_cluster
@@ -23,9 +24,7 @@ class BasicTests(unittest.TestCase):
 
     def test_basic(self):
         datastream_name = 'test_basic'
-        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                              topic_create=True, identity=False, passthrough=False,
-                                              partition_managed=True)
+        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
 
         # TODO: Add a step for creating experiment datastream
 
@@ -39,9 +38,7 @@ class BasicTests(unittest.TestCase):
 
     def test_restart_datastream(self):
         datastream_name = 'test-restart-datastream'
-        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                              topic_create=True, identity=False, passthrough=False,
-                                              partition_managed=True)
+        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
 
         # TODO: Add a step for creating experiment datastream
 
@@ -67,9 +64,7 @@ class BasicTests(unittest.TestCase):
         list_topics_source = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=topic_prefixes)
 
         datastream_name = 'test_update_datastream_whitelist'
-        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                              topic_create=True, identity=False, passthrough=False,
-                                              partition_managed=True)
+        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
 
         # TODO: Add a step for creating experiment datastream
 
@@ -123,9 +118,7 @@ class BasicTests(unittest.TestCase):
         # TODO: Create list of topics matching experiment datastream whitelist
 
         datastream_name = 'test_multiple_topic_creation_with_traffic'
-        control_datastream = CreateDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name,
-                                              topic_create=True, identity=False, passthrough=False,
-                                              partition_managed=True)
+        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
         test_steps.append(control_datastream)
 
         # TODO: Add a step for creating experiment datastream
@@ -138,8 +131,10 @@ class BasicTests(unittest.TestCase):
 
         # TODO: Add test steps for creating topics matching the experiment datasteam whitelist
 
+        # The ordering of when topic existence is validated depends on whether auto topic creation is enabled or not
         wait_for_topic_on_destination = ValidateDestinationTopicsExist(topics_getter=get_control_topics_list)
-        test_steps.append(wait_for_topic_on_destination)
+        if DatastreamConfigChoice.CONTROL.value.topic_create:
+            test_steps.append(wait_for_topic_on_destination)
 
         # TODO: Add test steps to wait for topics on destination for the experiment datasteam whitelist
 
@@ -150,6 +145,9 @@ class BasicTests(unittest.TestCase):
 
         sleep_after_producing_traffic = Sleep(secs=60 * 5)
         test_steps.append(sleep_after_producing_traffic)
+
+        if not DatastreamConfigChoice.CONTROL.value.topic_create:
+            test_steps.append(wait_for_topic_on_destination)
 
         consume_records = ConsumeFromDestinationTopics(topics=control_topics_list, num_records=10000)
         test_steps.append(consume_records)
