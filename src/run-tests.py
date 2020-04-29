@@ -4,10 +4,10 @@ import logging
 import unittest
 
 from testlib.brooklin.datastream import DatastreamConfigChoice
-from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
 from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host, \
     restart_brooklin_cluster
-from testlib.core.runner import TestRunner
+from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
+from testlib.core.runner import TestRunnerBuilder
 from testlib.core.teststeps import Sleep
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
@@ -34,7 +34,9 @@ class BasicTests(unittest.TestCase):
         # TODO: Add a step for running audit on the experiment data-flow
 
         run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time, endtime_getter=sleep.end_time)
-        self.assertTrue(TestRunner('test_basic').run(control_datastream, sleep, kafka_audit, run_ekg))
+        self.assertTrue(TestRunnerBuilder('test_basic')
+                        .add_sequential(control_datastream, sleep, kafka_audit, run_ekg)
+                        .build().run())
 
     def test_restart_datastream(self):
         datastream_name = 'test-restart-datastream'
@@ -55,9 +57,10 @@ class BasicTests(unittest.TestCase):
 
         run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                  endtime_getter=sleep_after_restart.end_time)
-        self.assertTrue(TestRunner('test_restart_datastream').run(control_datastream, sleep_before_restart,
-                                                                  restart_datastream, sleep_after_restart, kafka_audit,
-                                                                  run_ekg))
+        self.assertTrue(TestRunnerBuilder('test_restart_datastream')
+                        .add_sequential(control_datastream, sleep_before_restart, restart_datastream,
+                                        sleep_after_restart, kafka_audit, run_ekg)
+                        .build().run())
 
     def test_update_datastream_whitelist(self):
         topic_prefixes = ['voyager-api', 'seas-']
@@ -103,10 +106,12 @@ class BasicTests(unittest.TestCase):
         run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                  endtime_getter=sleep_after_update.end_time)
 
-        self.assertTrue(TestRunner('test_update_datastream_whitelist')
-                        .run(list_topics_source, control_datastream, sleep_before_update, update_datastream,
-                             sleep_after_update, list_topics_destination_after_update, validate_topics_after_update,
-                             kafka_audit_basic, kafka_audit_new_topics, run_ekg))
+        self.assertTrue(TestRunnerBuilder('test_update_datastream_whitelist')
+                        .add_sequential(list_topics_source, control_datastream, sleep_before_update, update_datastream,
+                                        sleep_after_update, list_topics_destination_after_update,
+                                        validate_topics_after_update, kafka_audit_basic, kafka_audit_new_topics,
+                                        run_ekg)
+                        .build().run())
 
     def test_multiple_topic_creation_with_traffic(self):
         test_steps = []
@@ -162,15 +167,21 @@ class BasicTests(unittest.TestCase):
         test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
                                          endtime_getter=sleep_after_producing_traffic.end_time))
 
-        self.assertTrue(TestRunner('test_multiple_topic_creation_with_traffic').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_multiple_topic_creation_with_traffic')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_brooklin_cluster_parallel_bounce(self):
         test_steps = restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
-        self.assertTrue(TestRunner('test_brooklin_cluster_parallel_bounce').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_brooklin_cluster_parallel_bounce')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_brooklin_cluster_rolling_bounce(self):
         test_steps = restart_brooklin_cluster('test_brooklin_cluster_rolling_bounce', 10)
-        self.assertTrue(TestRunner('test_brooklin_cluster_rolling_bounce').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_brooklin_cluster_rolling_bounce')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
 
 class BrooklinErrorInducingTests(unittest.TestCase):
@@ -178,27 +189,39 @@ class BrooklinErrorInducingTests(unittest.TestCase):
 
     def test_kill_random_brooklin_host(self):
         test_steps = kill_brooklin_host('test_kill_random_brooklin_host', False)
-        self.assertTrue(TestRunner('test_kill_random_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_kill_random_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_kill_leader_brooklin_host(self):
         test_steps = kill_brooklin_host('test_kill_leader_brooklin_host', True)
-        self.assertTrue(TestRunner('test_kill_leader_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_kill_leader_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_stop_random_brooklin_host(self):
         test_steps = stop_brooklin_host('test_stop_random_brooklin_host', False)
-        self.assertTrue(TestRunner('test_stop_random_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_stop_random_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_stop_leader_brooklin_host(self):
         test_steps = stop_brooklin_host('test_stop_leader_brooklin_host', True)
-        self.assertTrue(TestRunner('test_stop_leader_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_stop_leader_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_pause_resume_random_brooklin_host(self):
         test_steps = pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False)
-        self.assertTrue(TestRunner('test_pause_resume_random_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_pause_resume_random_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_pause_resume_leader_brooklin_host(self):
         test_steps = pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True)
-        self.assertTrue(TestRunner('test_pause_resume_leader_brooklin_host').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_pause_resume_leader_brooklin_host')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
 
 class KafkaErrorInducingTests(unittest.TestCase):
@@ -206,35 +229,51 @@ class KafkaErrorInducingTests(unittest.TestCase):
 
     def test_kill_random_source_kafka_broker(self):
         test_steps = kill_kafka_broker('test_kill_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunner('test_kill_random_source_kafka_broker').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_kill_random_source_kafka_broker')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_kill_random_destination_kafka_broker(self):
         test_steps = kill_kafka_broker('test_kill_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunner('test_kill_random_destination_kafka_broker').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_kill_random_destination_kafka_broker')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_stop_random_source_kafka_broker(self):
         test_steps = stop_kafka_broker('test_stop_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunner('test_stop_random_source_kafka_broker').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_stop_random_source_kafka_broker')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_stop_random_destination_kafka_broker(self):
         test_steps = stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunner('test_stop_random_destination_kafka_broker').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_stop_random_destination_kafka_broker')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_perform_ple_source_kafka_cluster(self):
         test_steps = perform_kafka_ple('test_perform_ple_source_kafka_cluster', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunner('test_perform_ple_source_kafka_cluster').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_perform_ple_source_kafka_cluster')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_perform_ple_destination_kafka_cluster(self):
         test_steps = perform_kafka_ple('test_perform_ple_destination_kafka_cluster', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunner('test_perform_ple_destination_kafka_cluster').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_perform_ple_destination_kafka_cluster')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_restart_source_kafka_cluster(self):
         test_steps = restart_kafka_cluster('test_restart_source_kafka_cluster', KafkaClusterChoice.SOURCE, 10)
-        self.assertTrue(TestRunner('test_restart_source_kafka_cluster').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_restart_source_kafka_cluster')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
     def test_restart_destination_kafka_cluster(self):
         test_steps = restart_kafka_cluster('test_restart_destination_kafka_cluster', KafkaClusterChoice.DESTINATION, 10)
-        self.assertTrue(TestRunner('test_restart_destination_kafka_cluster').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_restart_destination_kafka_cluster')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
 
 if __name__ == '__main__':

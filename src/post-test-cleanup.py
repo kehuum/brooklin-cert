@@ -3,7 +3,7 @@
 import logging
 import unittest
 
-from testlib.core.runner import TestRunner
+from testlib.core.runner import TestRunnerBuilder
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import ListTopics, DeleteTopics
 
@@ -30,7 +30,9 @@ class PostTestCleanup(unittest.TestCase):
         test_steps.append(DeleteTopics(topics_getter=get_created_topics, cluster=KafkaClusterChoice.DESTINATION,
                                        skip_on_failure=True))
 
-        self.assertTrue(TestRunner('test_post_test_cleanup').run(*test_steps))
+        self.assertTrue(TestRunnerBuilder('test_post_test_cleanup')
+                        .add_sequential(*test_steps)
+                        .build().run())
 
 
 if __name__ == '__main__':

@@ -123,7 +123,7 @@ do
 key="$1"
 
 case $key in
-    -t)
+    $TEST_DRIVER_HOST_OPTION)
     TEST_DRIVER_HOST="$2"
     INCLUDE_TEST_DRIVER=1
     shift # past argument

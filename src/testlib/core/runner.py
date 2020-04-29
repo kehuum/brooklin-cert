@@ -1,42 +1,75 @@
+import concurrent
 import logging
 import subprocess
 
-from typing import Callable
+from concurrent.futures.process import ProcessPoolExecutor
+from itertools import chain
+from operator import methodcaller, itemgetter
+from typing import Iterable, List, Union, Callable
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.brooklin.teststeps import KillBrooklinCluster, StartBrooklinCluster, PingBrooklinCluster
-from testlib.core.teststeps import TestStep, NukeZooKeeper
+from testlib.core.teststeps import TestStep, NukeZooKeeper, ParallelTestStepGroup
 from testlib.core.utils import typename
+
+TestStepOrParallelTestStepGroup = Union[TestStep, ParallelTestStepGroup]
+
+
+class TestRunnerBuilder(object):
+    """A builder for TestRunner objects"""
+
+    def __init__(self, test_name):
+        self._test_name = test_name
+        self._steps: List[TestStepOrParallelTestStepGroup] = []
+
+    def add_sequential(self, *steps: TestStep):
+        self._steps.extend(steps)
+        return self
+
+    def add_parallel(self, *steps: TestStep):
+        self._steps.append(ParallelTestStepGroup(*steps))
+        return self
+
+    def build(self):
+        return TestRunner(self._test_name, chain(TestRunnerBuilder._get_pretest_steps(), self._steps))
+
+    @staticmethod
+    def _get_pretest_steps():
+        # TODO: add steps for Brooklin's experiment cluster
+        return PingBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL), \
+               KillBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, skip_if_dead=True), \
+               NukeZooKeeper(cluster=BrooklinClusterChoice.CONTROL), \
+               StartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL)
 
 
 class TestRunner(object):
     """Main test driver responsible for running an end-to-end test"""
 
-    def __init__(self, test_name):
-        self.test_name = test_name
+    def __init__(self, test_name: str, steps: Iterable[TestStepOrParallelTestStepGroup]):
+        self._test_name = test_name
+        self._steps = steps
 
-    def run(self, *steps: TestStep):
-        pretest_steps = TestRunner._get_pretest_steps()
-        self._run_steps(*pretest_steps, *steps)
+    def run(self):
+        return self._run_steps(self._steps)
 
-    def _run_steps(self, *steps: TestStep):
+    def _run_steps(self, steps: Iterable[TestStepOrParallelTestStepGroup]):
         test_success = True
         cleanup_steps = []
 
         for s in steps:
-            step_name = f'{self.test_name}:{typename(s)}'
+            step_name = f'{self._test_name}:{typename(s)}'
             cleanup_steps.append(s)
 
             logging.info(f'Running test step {step_name}')
-            success, message = self.execute(s)
+            success, message = self._execute(s)
             if not success:
                 logging.error(f'Test step {step_name} failed with an error: {message}')
                 test_success = False
                 break
 
         for c in reversed(cleanup_steps):
-            step_name = f'{self.test_name}:{typename(c)}'
+            step_name = f'{self._test_name}:{typename(c)}'
             logging.info(f'Running cleanup test step {step_name}')
-            success, message = self.cleanup(c)
+            success, message = self._cleanup(c)
             if not success:
                 logging.error(f'Cleanup test step {step_name} failed with an error: {message}')
                 test_success = False
@@ -44,19 +77,27 @@ class TestRunner(object):
         return test_success
 
     @staticmethod
-    def execute(step: TestStep):
-        return TestRunner.execute_fn(fn=step.run, step_name=typename(step))
+    def _execute(s: TestStepOrParallelTestStepGroup):
+        run_methodcaller = methodcaller('run')
+        return TestRunner._call(s, run_methodcaller)
 
     @staticmethod
-    def cleanup(step: TestStep):
-        return TestRunner.execute_fn(fn=step.cleanup, step_name=typename(step))
+    def _cleanup(s: TestStepOrParallelTestStepGroup):
+        cleanup_methodcaller = methodcaller('cleanup')
+        return TestRunner._call(s, cleanup_methodcaller)
 
     @staticmethod
-    def execute_fn(fn: Callable[[], None], step_name) -> (bool, str):
+    def _call(s: TestStepOrParallelTestStepGroup, fn_caller: Callable[[TestStep], None]) -> (bool, str):
+        if isinstance(s, ParallelTestStepGroup):
+            return TestRunner._parallel_execute_step_group_fns(step_group=s, fn_caller=fn_caller)
+        return TestRunner._execute_step_fn(step=s, fn_caller=fn_caller)
+
+    @staticmethod
+    def _execute_step_fn(step: TestStep, fn_caller: Callable[[TestStep], None]) -> (bool, str):
         try:
-            fn()
+            fn_caller(step)  # execute the specified function
         except Exception as err:
-            error_message = [f'Test step {step_name} failed with error: {err}']
+            error_message = [f'Test step {typename(step)} failed with error: {err}']
             if isinstance(err, subprocess.CalledProcessError):
                 if err.stdout:
                     error_message += [f'stdout:\n{err.stdout.strip()}']
@@ -67,9 +108,18 @@ class TestRunner(object):
             return True, ''
 
     @staticmethod
-    def _get_pretest_steps():
-        # TODO: add steps for Brooklin's experiment cluster
-        return PingBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL),\
-               KillBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, skip_if_dead=True),\
-               NukeZooKeeper(cluster=BrooklinClusterChoice.CONTROL),\
-               StartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL)
+    def _parallel_execute_step_group_fns(step_group: ParallelTestStepGroup,
+                                         fn_caller: Callable[[TestStep], None]) -> (bool, str):
+        n = len(step_group.steps)
+
+        with ProcessPoolExecutor(max_workers=n) as executor:
+            futures = [executor.submit(TestRunner._execute_step_fn, s, fn_caller) for s in step_group.steps]
+            done, not_done = concurrent.futures.wait(futures)  # waits indefinitely for all steps to fail/finish
+            results = [future.result() for future in done]
+
+        status_getter, message_getter = itemgetter(0), itemgetter(1)
+        # If one step fails, the entire group is considered failed
+        if not_done or not all(status_getter(r) for r in results):
+            error_message = "\n".join(message_getter(r) for r in results)
+            return False, f'Executing one or more parallel test steps failed: {error_message}'
+        return True, ''

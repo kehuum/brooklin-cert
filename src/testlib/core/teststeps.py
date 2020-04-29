@@ -47,6 +47,17 @@ class TestStep(ABC):
         pass
 
 
+class ParallelTestStepGroup(object):
+    """Represents a collection of TestSteps that are executed in parallel"""
+
+    def __init__(self, *steps: TestStep):
+        self._steps = steps
+
+    @property
+    def steps(self):
+        return self._steps
+
+
 class RunPythonCommand(TestStep, ABC):
     """Base class of any test step that involves running a Python script.
 
