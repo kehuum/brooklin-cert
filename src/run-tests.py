@@ -4,8 +4,8 @@ import logging
 import unittest
 
 from testlib.brooklin.datastream import DatastreamConfigChoice
-from testlib.brooklin.testhelpers import kill_brooklin_host, stop_brooklin_host, pause_resume_brooklin_host, \
-    restart_brooklin_cluster
+from testlib.brooklin.testhelpers import kill_start_brooklin_host, stop_start_brooklin_host, \
+    pause_resume_brooklin_host, restart_brooklin_cluster
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
 from testlib.core.runner import TestRunnerBuilder
 from testlib.core.teststeps import Sleep
@@ -188,25 +188,25 @@ class BrooklinErrorInducingTests(unittest.TestCase):
     """All Brooklin error-inducing certification tests"""
 
     def test_kill_random_brooklin_host(self):
-        test_steps = kill_brooklin_host('test_kill_random_brooklin_host', False)
+        test_steps = kill_start_brooklin_host('test_kill_random_brooklin_host', False)
         self.assertTrue(TestRunnerBuilder('test_kill_random_brooklin_host')
                         .add_sequential(*test_steps)
                         .build().run())
 
     def test_kill_leader_brooklin_host(self):
-        test_steps = kill_brooklin_host('test_kill_leader_brooklin_host', True)
+        test_steps = kill_start_brooklin_host('test_kill_leader_brooklin_host', True)
         self.assertTrue(TestRunnerBuilder('test_kill_leader_brooklin_host')
                         .add_sequential(*test_steps)
                         .build().run())
 
     def test_stop_random_brooklin_host(self):
-        test_steps = stop_brooklin_host('test_stop_random_brooklin_host', False)
+        test_steps = stop_start_brooklin_host('test_stop_random_brooklin_host', False)
         self.assertTrue(TestRunnerBuilder('test_stop_random_brooklin_host')
                         .add_sequential(*test_steps)
                         .build().run())
 
     def test_stop_leader_brooklin_host(self):
-        test_steps = stop_brooklin_host('test_stop_leader_brooklin_host', True)
+        test_steps = stop_start_brooklin_host('test_stop_leader_brooklin_host', True)
         self.assertTrue(TestRunnerBuilder('test_stop_leader_brooklin_host')
                         .add_sequential(*test_steps)
                         .build().run())

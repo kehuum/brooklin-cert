@@ -178,6 +178,28 @@ class ManipulateBrooklinCluster(TestStep):
 
 # Single host steps
 
+class GetLeaderBrooklinHostMixIn(object):
+    """Mixin to be used with any ManipulateBrooklinHost extender
+    that wishes to execute an action against the leader host in
+    a Brooklin cluster"""
+
+    def __init__(self, cluster: BrooklinClusterChoice, **kwargs):
+        super().__init__(hostname_getter=lambda: GetLeaderBrooklinHostMixIn.get_leader_host(cluster), **kwargs)
+
+    @staticmethod
+    def get_leader_host(cluster):
+        hosts = list_hosts(cluster.value.fabric, cluster.value.tag)
+        leaders = [h for h in hosts if GetLeaderBrooklinHostMixIn.is_leader(h)]
+        if len(leaders) != 1:
+            raise OperationFailedError(f'Expected exactly one leader but found: {leaders}')
+        return leaders[0]
+
+    @staticmethod
+    def is_leader(host):
+        with XMLRPCBrooklinClient(hostname=host) as client:
+            return client.is_brooklin_leader()
+
+
 class PingBrooklinHost(ManipulateBrooklinHost):
     """Test step for pinging the test agent on a Brooklin host"""
 
@@ -199,6 +221,11 @@ class StopBrooklinHost(ManipulateBrooklinHost):
         client.stop_brooklin()
 
 
+class StopLeaderBrooklinHost(GetLeaderBrooklinHostMixIn, StopBrooklinHost):
+    """Test step to stop the leader host in a Brooklin cluster"""
+    pass
+
+
 class StopRandomBrooklinHost(GetRandomHostMixIn, StopBrooklinHost):
     """Test step to stop a random Brooklin host in the cluster"""
     pass
@@ -215,6 +242,11 @@ class KillBrooklinHost(ManipulateBrooklinHost):
         client.kill_brooklin(skip_if_dead=self.skip_if_dead)
 
 
+class KillLeaderBrooklinHost(GetLeaderBrooklinHostMixIn, KillBrooklinHost):
+    """Test step to kill the leader host in a Brooklin cluster"""
+    pass
+
+
 class KillRandomBrooklinHost(GetRandomHostMixIn, KillBrooklinHost):
     """Test step to kill a random Brooklin host in the cluster"""
     pass
@@ -225,6 +257,11 @@ class PauseBrooklinHost(ManipulateBrooklinHost):
 
     def invoke_client_function(self, client):
         client.pause_brooklin()
+
+
+class PauseLeaderBrooklinHost(GetLeaderBrooklinHostMixIn, PauseBrooklinHost):
+    """Test step to pause the leader host in a Brooklin cluster"""
+    pass
 
 
 class PauseRandomBrooklinHost(GetRandomHostMixIn, PauseBrooklinHost):
@@ -240,33 +277,6 @@ class ResumeBrooklinHost(ManipulateBrooklinHost):
 
 
 # Whole cluster steps
-
-class GetBrooklinLeaderHost(TestStep):
-    """Test step to get the Brooklin Leader Host"""
-
-    def __init__(self, cluster=BrooklinClusterChoice.CONTROL):
-        super().__init__()
-        if not cluster:
-            raise ValueError(f'Invalid cluster choice: {cluster}')
-
-        self.cluster = cluster.value
-        self.leader_host = None
-
-    def run_test(self):
-        hosts = list_hosts(self.cluster.fabric, self.cluster.tag)
-        leaders = [h for h in hosts if GetBrooklinLeaderHost.is_leader(h)]
-        if len(leaders) != 1:
-            raise OperationFailedError(f'Expected exactly one leader but found: {leaders}')
-        self.leader_host = leaders[0]
-
-    def get_leader_host(self):
-        return self.leader_host
-
-    @staticmethod
-    def is_leader(host):
-        with XMLRPCBrooklinClient(hostname=host) as client:
-            return client.is_brooklin_leader()
-
 
 class PingBrooklinCluster(ManipulateBrooklinCluster):
     """Test step for pinging the test agents on an entire Brooklin cluster"""
