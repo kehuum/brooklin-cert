@@ -2,6 +2,7 @@ from collections import namedtuple
 from enum import Enum
 
 BROOKLIN_PRODUCT_NAME = 'brooklin-server'
+BROOKLIN_SERVICE_NAME = 'brooklin-service'
 
 BrooklinDeploymentInfo = namedtuple('BrooklinDeploymentInfo', ['fabric', 'tag', 'zk_dns', 'zk_root_znode'])
 
