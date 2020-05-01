@@ -1,130 +1,75 @@
+from typing import Type, Union
+
 from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, KillRandomBrooklinHost, \
     StartBrooklinHost, StopRandomBrooklinHost, PauseRandomBrooklinHost, ResumeBrooklinHost, KillLeaderBrooklinHost, \
     StopLeaderBrooklinHost, PauseLeaderBrooklinHost
+from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
 
 
-def kill_start_brooklin_host(datastream_name, is_leader):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
+def apply_revert_brooklin_host(
+        datastream_name, is_leader,
+        apply_random_step_type: Type[Union[KillRandomBrooklinHost, StopRandomBrooklinHost, PauseRandomBrooklinHost]],
+        apply_leader_step_type: Type[Union[KillLeaderBrooklinHost, StopLeaderBrooklinHost, PauseLeaderBrooklinHost]],
+        revert_step_type: Type[Union[StartBrooklinHost, ResumeBrooklinHost]]) -> TestRunner:
 
-    # TODO: Add a step for creating experiment datastream
+    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
-    sleep_before_kill = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_kill)
+    sleep_before_apply = Sleep(secs=60 * 10)
 
-    if is_leader:
-        kill_brooklin_host = KillLeaderBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(kill_brooklin_host)
+    apply_step_type = apply_leader_step_type if is_leader else apply_random_step_type
+    apply_brooklin_host = (apply_step_type(cluster=BrooklinClusterChoice.CONTROL),
+                           apply_step_type(cluster=BrooklinClusterChoice.EXPERIMENT))
 
-        # TODO: Add a step for hard killing a random Brooklin host in the experiment cluster
+    sleep_after_apply = Sleep(secs=60)
 
-    else:
-        kill_brooklin_host = KillRandomBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(kill_brooklin_host)
+    revert_brooklin_host = (revert_step_type(apply_brooklin_host[0].get_host),
+                            revert_step_type(apply_brooklin_host[1].get_host))
 
-        # TODO: Add a step for hard killing a random Brooklin host in the experiment cluster
+    sleep_after_revert = Sleep(secs=60 * 10)
 
-    test_steps.append(Sleep(secs=60))
-    test_steps.append(StartBrooklinHost(kill_brooklin_host.get_host))
+    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                 endtime_getter=sleep_after_apply.end_time,
+                                 topics_file='data/voyager-topics.txt'),
+                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                 endtime_getter=sleep_after_apply.end_time,
+                                 topics_file='data/experiment-voyager-topics.txt'))
 
-    # TODO: Add a step for starting the killed Brooklin host in the experiment cluster
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_apply.end_time)
 
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
-
-    # TODO: Add a step for running audit on the experiment data-flow
-
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
-
-
-def stop_start_brooklin_host(datastream_name, is_leader):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
-
-    # TODO: Add a step for creating experiment datastream
-
-    sleep_before_stop = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_stop)
-
-    if is_leader:
-        stop_brooklin_host = StopLeaderBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(stop_brooklin_host)
-
-        # TODO: Add a step for stopping the leader Brooklin host in the experiment cluster
-
-    else:
-        stop_brooklin_host = StopRandomBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(stop_brooklin_host)
-
-        # TODO: Add a step for stopping the Brooklin host in the experiment cluster
-
-    test_steps.append(Sleep(secs=60))
-    test_steps.append(StartBrooklinHost(stop_brooklin_host.get_host))
-
-    # TODO: Add a step for starting the Brooklin host in the experiment cluster
-
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
-
-    # TODO: Add a step for running audit on the experiment data-flow
-
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
+    return TestRunnerBuilder(test_name=datastream_name) \
+        .add_parallel(*create_datastream) \
+        .add_sequential(sleep_before_apply) \
+        .add_parallel(*apply_brooklin_host) \
+        .add_sequential(sleep_after_apply) \
+        .add_parallel(*revert_brooklin_host) \
+        .add_sequential(sleep_after_revert) \
+        .add_parallel(*kafka_audit) \
+        .add_sequential(ekg_analysis) \
+        .build()
 
 
-def pause_resume_brooklin_host(datastream_name, is_leader):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
+def kill_start_brooklin_host(datastream_name, is_leader) -> TestRunner:
+    return apply_revert_brooklin_host(
+        datastream_name, is_leader, apply_leader_step_type=KillLeaderBrooklinHost,
+        apply_random_step_type=KillRandomBrooklinHost, revert_step_type=StartBrooklinHost)
 
-    # TODO: Add a step for creating experiment datastream
 
-    sleep_before_stop = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_stop)
+def stop_start_brooklin_host(datastream_name, is_leader) -> TestRunner:
+    return apply_revert_brooklin_host(
+        datastream_name, is_leader, apply_leader_step_type=StopLeaderBrooklinHost,
+        apply_random_step_type=StopRandomBrooklinHost, revert_step_type=StartBrooklinHost)
 
-    if is_leader:
-        pause_brooklin_host = PauseLeaderBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(pause_brooklin_host)
 
-        # TODO: Add a step for pausing the leader Brooklin host in the experiment cluster
-
-    else:
-        pause_brooklin_host = PauseRandomBrooklinHost(cluster=BrooklinClusterChoice.CONTROL)
-        test_steps.append(pause_brooklin_host)
-
-        # TODO: Add a step for pausing the Brooklin host in the experiment cluster
-
-    test_steps.append(Sleep(secs=60))
-    test_steps.append(ResumeBrooklinHost(pause_brooklin_host.get_host))
-
-    # TODO: Add a step for resuming the Brooklin host in the experiment cluster
-
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
-
-    # TODO: Add a step for running audit on the experiment data-flow
-
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
+def pause_resume_brooklin_host(datastream_name, is_leader) -> TestRunner:
+    return apply_revert_brooklin_host(
+        datastream_name, is_leader, apply_leader_step_type=PauseLeaderBrooklinHost,
+        apply_random_step_type=PauseRandomBrooklinHost, revert_step_type=ResumeBrooklinHost)
 
 
 def restart_brooklin_cluster(datastream_name, host_concurrency):

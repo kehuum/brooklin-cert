@@ -188,40 +188,28 @@ class BrooklinErrorInducingTests(unittest.TestCase):
     """All Brooklin error-inducing certification tests"""
 
     def test_kill_random_brooklin_host(self):
-        test_steps = kill_start_brooklin_host('test_kill_random_brooklin_host', False)
-        self.assertTrue(TestRunnerBuilder('test_kill_random_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(kill_start_brooklin_host('test_kill_random_brooklin_host', False)
+                        .run())
 
     def test_kill_leader_brooklin_host(self):
-        test_steps = kill_start_brooklin_host('test_kill_leader_brooklin_host', True)
-        self.assertTrue(TestRunnerBuilder('test_kill_leader_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(kill_start_brooklin_host('test_kill_leader_brooklin_host', True)
+                        .run())
 
     def test_stop_random_brooklin_host(self):
-        test_steps = stop_start_brooklin_host('test_stop_random_brooklin_host', False)
-        self.assertTrue(TestRunnerBuilder('test_stop_random_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(stop_start_brooklin_host('test_stop_random_brooklin_host', False)
+                        .run())
 
     def test_stop_leader_brooklin_host(self):
-        test_steps = stop_start_brooklin_host('test_stop_leader_brooklin_host', True)
-        self.assertTrue(TestRunnerBuilder('test_stop_leader_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(stop_start_brooklin_host('test_stop_leader_brooklin_host', True)
+                        .run())
 
     def test_pause_resume_random_brooklin_host(self):
-        test_steps = pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False)
-        self.assertTrue(TestRunnerBuilder('test_pause_resume_random_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False)
+                        .run())
 
     def test_pause_resume_leader_brooklin_host(self):
-        test_steps = pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True)
-        self.assertTrue(TestRunnerBuilder('test_pause_resume_leader_brooklin_host')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True)
+                        .run())
 
 
 class KafkaErrorInducingTests(unittest.TestCase):
