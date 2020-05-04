@@ -1,122 +1,117 @@
+from typing import Type, Union
+
 from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.teststeps import CreateDatastream
+from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.ekg import RunEkgAnalysis
+from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKafkaAudit, StopRandomKafkaHost, \
     PerformKafkaPreferredLeaderElection
 
 
-def kill_kafka_broker(datastream_name, kafka_cluster):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
+def apply_revert_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice,
+                              apply_step_type: Type[Union[KillRandomKafkaHost, StopRandomKafkaHost]]) -> TestRunner:
+    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
-    # TODO: Add a step for creating experiment datastream
+    sleep_before_apply = Sleep(secs=60 * 10)
 
-    sleep_before_kill = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_kill)
+    apply_kafka_broker = apply_step_type(cluster=kafka_cluster)
 
-    kill_kafka_host = KillRandomKafkaHost(cluster=kafka_cluster)
-    test_steps.append(kill_kafka_host)
+    sleep_after_apply = Sleep(secs=60)
 
-    # TODO: Add a step for hard killing a random Kafka host in the experiment cluster
+    revert_kafka_broker = StartKafkaHost(apply_kafka_broker.get_host)
 
-    test_steps.append(Sleep(secs=60))
-    test_steps.append(StartKafkaHost(kill_kafka_host.get_host))
+    sleep_after_revert = Sleep(secs=60 * 10)
 
-    # TODO: Add a step for starting the killed Brooklin host in the experiment cluster
+    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                 endtime_getter=sleep_after_apply.end_time,
+                                 topics_file='data/voyager-topics.txt'),
+                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                 endtime_getter=sleep_after_apply.end_time,
+                                 topics_file='data/experiment-voyager-topics.txt'))
 
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_apply.end_time)
 
-    # TODO: Add a step for running audit on the experiment data-flow
-
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
-
-
-def stop_kafka_broker(datastream_name, kafka_cluster):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
-
-    # TODO: Add a step for creating experiment datastream
-
-    sleep_before_stop = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_stop)
-
-    stop_kafka_host = StopRandomKafkaHost(cluster=kafka_cluster)
-    test_steps.append(stop_kafka_host)
-
-    # TODO: Add a step for stopping the Brooklin host in the experiment cluster
-
-    test_steps.append(Sleep(secs=60))
-    test_steps.append(StartKafkaHost(stop_kafka_host.get_host))
-
-    # TODO: Add a step for starting the Brooklin host in the experiment cluster
-
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
-
-    # TODO: Add a step for running audit on the experiment data-flow
-
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
+    return TestRunnerBuilder(test_name=datastream_name) \
+        .add_parallel(*create_datastream) \
+        .add_sequential(sleep_before_apply) \
+        .add_sequential(revert_kafka_broker) \
+        .add_sequential(sleep_after_apply) \
+        .add_sequential(revert_kafka_broker) \
+        .add_sequential(sleep_after_revert) \
+        .add_parallel(*kafka_audit) \
+        .add_sequential(ekg_analysis) \
+        .build()
 
 
-def perform_kafka_ple(datastream_name, kafka_cluster):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
+def kill_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    return apply_revert_kafka_broker(datastream_name=datastream_name, kafka_cluster=kafka_cluster,
+                                     apply_step_type=KillRandomKafkaHost)
 
-    # TODO: Add a step for creating experiment datastream
 
-    sleep_before_kill = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_kill)
+def stop_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    return apply_revert_kafka_broker(datastream_name=datastream_name, kafka_cluster=kafka_cluster,
+                                     apply_step_type=StopRandomKafkaHost)
+
+
+def perform_kafka_ple(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+
+    sleep_before_ple = Sleep(secs=60 * 10)
 
     perform_ple = PerformKafkaPreferredLeaderElection(cluster=kafka_cluster)
-    test_steps.append(perform_ple)
 
-    # TODO: Add a step for performing PLE in the experiment cluster
+    sleep_after_ple = Sleep(secs=60 * 10)
 
-    sleep_after_start = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_start)
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_start.end_time))
+    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                 endtime_getter=sleep_after_ple.end_time,
+                                 topics_file='data/voyager-topics.txt'),
+                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                 endtime_getter=sleep_after_ple.end_time,
+                                 topics_file='data/experiment-voyager-topics.txt'))
 
-    # TODO: Add a step for running audit on the experiment data-flow
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_ple.end_time)
 
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_start.end_time))
-    return test_steps
+    return TestRunnerBuilder(test_name=datastream_name) \
+        .add_parallel(*create_datastream) \
+        .add_sequential(sleep_before_ple) \
+        .add_sequential(perform_ple) \
+        .add_sequential(sleep_after_ple) \
+        .add_parallel(*kafka_audit) \
+        .add_sequential(ekg_analysis) \
+        .build()
 
 
-def restart_kafka_cluster(datastream_name, kafka_cluster, host_concurrency):
-    test_steps = []
-    control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-    test_steps.append(control_datastream)
+def restart_kafka_cluster(datastream_name, kafka_cluster: KafkaClusterChoice, host_concurrency) -> TestRunner:
+    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
-    # TODO: Add a step for creating experiment datastream
-
-    sleep_before_restart = Sleep(secs=60 * 10)
-    test_steps.append(sleep_before_restart)
+    sleep_before_cluster_restart = Sleep(secs=60 * 10)
 
     restart_kafka = RestartCluster(cluster=kafka_cluster, host_concurrency=host_concurrency)
-    test_steps.append(restart_kafka)
 
-    sleep_after_restart = Sleep(secs=60 * 10)
-    test_steps.append(sleep_after_restart)
-    test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_restart.end_time))
+    sleep_after_cluster_restart = Sleep(secs=60 * 10)
 
-    # TODO: Add a step for running audit on the experiment data-flow
+    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                 endtime_getter=sleep_after_cluster_restart.end_time,
+                                 topics_file='data/voyager-topics.txt'),
+                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                 endtime_getter=sleep_after_cluster_restart.end_time,
+                                 topics_file='data/experiment-voyager-topics.txt'))
 
-    test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                     endtime_getter=sleep_after_restart.end_time))
-    return test_steps
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_cluster_restart.end_time)
+
+    return TestRunnerBuilder(test_name=datastream_name) \
+        .add_parallel(*create_datastream) \
+        .add_sequential(sleep_before_cluster_restart) \
+        .add_sequential(restart_kafka) \
+        .add_sequential(sleep_after_cluster_restart) \
+        .add_parallel(*kafka_audit) \
+        .add_sequential(ekg_analysis) \
+        .build()

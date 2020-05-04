@@ -172,16 +172,12 @@ class BasicTests(unittest.TestCase):
                         .build().run())
 
     def test_brooklin_cluster_parallel_bounce(self):
-        test_steps = restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
-        self.assertTrue(TestRunnerBuilder('test_brooklin_cluster_parallel_bounce')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
+                        .run())
 
     def test_brooklin_cluster_rolling_bounce(self):
-        test_steps = restart_brooklin_cluster('test_brooklin_cluster_rolling_bounce', 10)
-        self.assertTrue(TestRunnerBuilder('test_brooklin_cluster_rolling_bounce')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(restart_brooklin_cluster('test_brooklin_cluster_rolling_bounce', 10)
+                        .run())
 
 
 class BrooklinErrorInducingTests(unittest.TestCase):
@@ -216,52 +212,37 @@ class KafkaErrorInducingTests(unittest.TestCase):
     """All Kafka error-inducing certification tests"""
 
     def test_kill_random_source_kafka_broker(self):
-        test_steps = kill_kafka_broker('test_kill_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunnerBuilder('test_kill_random_source_kafka_broker')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(kill_kafka_broker('test_kill_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
+                        .run())
 
     def test_kill_random_destination_kafka_broker(self):
-        test_steps = kill_kafka_broker('test_kill_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunnerBuilder('test_kill_random_destination_kafka_broker')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(kill_kafka_broker('test_kill_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
+                        .run())
 
     def test_stop_random_source_kafka_broker(self):
-        test_steps = stop_kafka_broker('test_stop_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunnerBuilder('test_stop_random_source_kafka_broker')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(stop_kafka_broker('test_stop_random_source_kafka_broker', KafkaClusterChoice.SOURCE)
+                        .run())
 
     def test_stop_random_destination_kafka_broker(self):
-        test_steps = stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunnerBuilder('test_stop_random_destination_kafka_broker')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION)
+                        .run())
 
     def test_perform_ple_source_kafka_cluster(self):
-        test_steps = perform_kafka_ple('test_perform_ple_source_kafka_cluster', KafkaClusterChoice.SOURCE)
-        self.assertTrue(TestRunnerBuilder('test_perform_ple_source_kafka_cluster')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(perform_kafka_ple('test_perform_ple_source_kafka_cluster', KafkaClusterChoice.SOURCE)
+                        .run())
 
     def test_perform_ple_destination_kafka_cluster(self):
-        test_steps = perform_kafka_ple('test_perform_ple_destination_kafka_cluster', KafkaClusterChoice.DESTINATION)
-        self.assertTrue(TestRunnerBuilder('test_perform_ple_destination_kafka_cluster')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(perform_kafka_ple('test_perform_ple_destination_kafka_cluster', KafkaClusterChoice.DESTINATION)
+                        .run())
 
     def test_restart_source_kafka_cluster(self):
-        test_steps = restart_kafka_cluster('test_restart_source_kafka_cluster', KafkaClusterChoice.SOURCE, 10)
-        self.assertTrue(TestRunnerBuilder('test_restart_source_kafka_cluster')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(restart_kafka_cluster('test_restart_source_kafka_cluster', KafkaClusterChoice.SOURCE, 10)
+                        .run())
 
     def test_restart_destination_kafka_cluster(self):
-        test_steps = restart_kafka_cluster('test_restart_destination_kafka_cluster', KafkaClusterChoice.DESTINATION, 10)
-        self.assertTrue(TestRunnerBuilder('test_restart_destination_kafka_cluster')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(
+            restart_kafka_cluster('test_restart_destination_kafka_cluster', KafkaClusterChoice.DESTINATION, 10)
+                .run())
 
 
 if __name__ == '__main__':
