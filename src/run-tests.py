@@ -16,7 +16,7 @@ from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, ListTop
     ValidateSourceAndDestinationTopicsMatch, CreateSourceTopics, ValidateDestinationTopicsExist, \
     ProduceToSourceTopics, ConsumeFromDestinationTopics
 
-logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s %(message)s')
 
 
 class BasicTests(unittest.TestCase):
@@ -24,19 +24,27 @@ class BasicTests(unittest.TestCase):
 
     def test_basic(self):
         datastream_name = 'test_basic'
-        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-
-        # TODO: Add a step for creating experiment datastream
+        create_datastream = \
+            (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+             CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
         sleep = Sleep(secs=60 * 15)
-        kafka_audit = RunKafkaAudit(starttime_getter=control_datastream.end_time, endtime_getter=sleep.end_time)
 
-        # TODO: Add a step for running audit on the experiment data-flow
+        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time,
+                                     topics_file='data/voyager-topics.txt'),
+                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time, endtime_getter=sleep.end_time,
+                                     topics_file='data/experiment-voyager-topics.txt'))
 
-        run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time, endtime_getter=sleep.end_time)
-        self.assertTrue(TestRunnerBuilder('test_basic')
-                        .add_sequential(control_datastream, sleep, kafka_audit, run_ekg)
-                        .build().run())
+        run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
+
+        builder = TestRunnerBuilder('test_basic') \
+            .add_parallel(*create_datastream) \
+            .add_sequential(sleep) \
+            .add_parallel(*kafka_audit) \
+            .add_sequential(run_ekg) \
+            .build()
+
+        self.assertTrue(builder.run())
 
     def test_restart_datastream(self):
         datastream_name = 'test-restart-datastream'
