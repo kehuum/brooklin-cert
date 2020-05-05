@@ -34,11 +34,13 @@ class TestRunnerBuilder(object):
 
     @staticmethod
     def _get_pretest_steps():
-        # TODO: add steps for Brooklin's experiment cluster
-        return PingBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL), \
-               KillBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL, skip_if_dead=True), \
-               NukeZooKeeper(cluster=BrooklinClusterChoice.CONTROL), \
-               StartBrooklinCluster(cluster=BrooklinClusterChoice.CONTROL)
+        steps = []
+        for cluster in (BrooklinClusterChoice.CONTROL, BrooklinClusterChoice.EXPERIMENT):
+            steps += [PingBrooklinCluster(cluster=cluster),
+                      KillBrooklinCluster(cluster=cluster, skip_if_dead=True),
+                      NukeZooKeeper(cluster=cluster),
+                      StartBrooklinCluster(cluster=cluster)]
+        return steps
 
 
 class TestRunner(object):
@@ -90,10 +92,25 @@ class TestRunner(object):
     def _call(s: TestStepOrParallelTestStepGroup, fn_caller: Callable[[TestStep], None]) -> (bool, str):
         if isinstance(s, ParallelTestStepGroup):
             return TestRunner._parallel_execute_step_group_fns(step_group=s, fn_caller=fn_caller)
-        return TestRunner._execute_step_fn(step=s, fn_caller=fn_caller)
+        return TestRunner._execute_step_fn(step=s, fn_caller=fn_caller)[:2]
 
     @staticmethod
-    def _execute_step_fn(step: TestStep, fn_caller: Callable[[TestStep], None]) -> (bool, str):
+    def _execute_step_fn(step: TestStep, fn_caller: Callable[[TestStep], None]) -> (bool, str, TestStep):
+        """Expects a TestStep and a caller that calls a function on that TestStep,
+        typically TestStep.run() or TestStep.cleanup().
+
+        It returns:
+            - A boolean that indicates whether or not the called function executed
+            without raising exceptions
+
+            - An error message in case the called function raised an exception
+
+            - The passed TestStep object. This is only useful for scenarios where
+            _execute_step_fn() is executed in a different process (e.g. in the case
+            of parallel steps). Passing the TestStep object back allows the calling
+            process to observe any side-effects caused by executing the TestStep
+            function (e.g. changes in TestStep.start_time(), TestStep.end_time())
+        """
         try:
             fn_caller(step)  # execute the specified function
         except Exception as err:
@@ -103,9 +120,9 @@ class TestRunner(object):
                     error_message += [f'stdout:\n{err.stdout.strip()}']
                 if err.stderr:
                     error_message += [f'stderr:\n{err.stderr.strip()}']
-            return False, '\n'.join(error_message)
+            return False, '\n'.join(error_message), step
         else:
-            return True, ''
+            return True, '', step
 
     @staticmethod
     def _parallel_execute_step_group_fns(step_group: ParallelTestStepGroup,
@@ -117,9 +134,19 @@ class TestRunner(object):
             done, not_done = concurrent.futures.wait(futures)  # waits indefinitely for all steps to fail/finish
             results = [future.result() for future in done]
 
-        status_getter, message_getter = itemgetter(0), itemgetter(1)
+        status_getter, message_getter, step_getter = [itemgetter(i) for i in range(3)]
+
         # If one step fails, the entire group is considered failed
         if not_done or not all(status_getter(r) for r in results):
-            error_message = "\n".join(message_getter(r) for r in results)
+            error_message = "\n".join(message_getter(r) for r in results if not status_getter(r))
             return False, f'Executing one or more parallel test steps failed: {error_message}'
+
+        # Because step_group.steps are executed in parallel in multiple independent processes,
+        # any changes made to them in those external processes are not reflected in this process.
+        # To address this, the code below copies all the fields of the executed TestSteps back to
+        # step_group.steps.
+        steps_by_id = {step_getter(r).id: step_getter(r) for r in results}
+        for s in step_group.steps:
+            s.__dict__ = steps_by_id[s.id].__dict__
+
         return True, ''

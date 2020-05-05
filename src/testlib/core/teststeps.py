@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+import uuid
 
 from abc import ABC, abstractmethod
 from typing import Union
@@ -25,8 +26,13 @@ class TestStep(ABC):
     """
 
     def __init__(self):
+        self._id = str(uuid.uuid4())
         self.__start_time = None
         self.__end_time = None
+
+    @property
+    def id(self):
+        return self._id
 
     def start_time(self):
         return int(self.__start_time) if self.__start_time else None
