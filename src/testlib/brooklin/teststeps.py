@@ -12,6 +12,7 @@ from testlib.likafka.teststeps import KafkaClusterChoice
 from testlib.range import list_hosts
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
+PKCS12_SSL_CERTFILE = 'identity.p12'
 
 
 # Datastream steps
@@ -20,14 +21,12 @@ class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
     def __init__(self, datastream_config: DatastreamConfigChoice, name='basic-mirroring-datastream',
-                 whitelist='^voyager-api.*', cert='identity.p12'):
+                 cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not datastream_config:
             raise ValueError(f'Invalid datastream creation config: {datastream_config}')
         if not name:
             raise ValueError(f'Invalid name: {name}')
-        if not whitelist:
-            raise ValueError(f'Invalid whitelist: {whitelist}')
         if not cert:
             raise ValueError(f'Invalid cert: {cert}')
 
@@ -37,8 +36,8 @@ class CreateDatastream(RunPythonCommand):
         self.identity = datastream_config.value.identity
         self.passthrough = datastream_config.value.passthrough
         self.partition_managed = datastream_config.value.partition_managed
+        self.whitelist = datastream_config.value.whitelist
         self.name = name
-        self.whitelist = whitelist
         self.cert = cert
 
     @property
@@ -68,7 +67,7 @@ class CreateDatastream(RunPythonCommand):
 class RestartDatastream(RunPythonCommand):
     """Test step for restarting a datastream"""
 
-    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='test-restart-datastream', cert='identity.p12'):
+    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='test-restart-datastream', cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')
@@ -93,7 +92,7 @@ class UpdateDatastream(RunPythonCommand):
     """Test step for updating an existing datastream"""
 
     def __init__(self, whitelist, metadata, name, cluster=BrooklinClusterChoice.CONTROL,
-                 cert='identity.p12'):
+                 cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')

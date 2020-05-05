@@ -2,6 +2,7 @@ import json
 
 from collections import namedtuple
 from enum import Enum
+
 from testlib.brooklin.environment import BrooklinClusterChoice
 
 
@@ -43,7 +44,7 @@ class Datastream(object):
 
 
 DatastreamCreationInfo = namedtuple('DatastreamCreationInfo', ['cluster', 'num_tasks', 'topic_create', 'identity',
-                                                               'passthrough', 'partition_managed'])
+                                                               'passthrough', 'partition_managed', 'whitelist'])
 
 
 class DatastreamConfigChoice(Enum):
@@ -52,11 +53,13 @@ class DatastreamConfigChoice(Enum):
                                      topic_create=True,
                                      identity=False,
                                      passthrough=False,
-                                     partition_managed=False)
+                                     partition_managed=False,
+                                     whitelist='^voyager-api.*')
 
     EXPERIMENT = DatastreamCreationInfo(cluster=BrooklinClusterChoice.EXPERIMENT,
                                         num_tasks=120,
                                         topic_create=True,
                                         identity=False,
                                         passthrough=False,
-                                        partition_managed=True)
+                                        partition_managed=True,
+                                        whitelist='^experiment-voyager-api.*')
