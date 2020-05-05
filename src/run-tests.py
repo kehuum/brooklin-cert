@@ -48,136 +48,168 @@ class BasicTests(unittest.TestCase):
 
     def test_restart_datastream(self):
         datastream_name = 'test-restart-datastream'
-        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-
-        # TODO: Add a step for creating experiment datastream
+        create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                             CreateDatastream(name=datastream_name,
+                                              datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
         sleep_before_restart = Sleep(secs=60 * 10)
-        restart_datastream = RestartDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name)
 
-        # TODO: Add a step for restarting experiment datastream
+        restart_datastream = (RestartDatastream(cluster=BrooklinClusterChoice.CONTROL, name=datastream_name),
+                              RestartDatastream(cluster=BrooklinClusterChoice.EXPERIMENT, name=datastream_name))
 
         sleep_after_restart = Sleep(secs=60 * 10)
-        kafka_audit = RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                    endtime_getter=sleep_after_restart.end_time)
 
-        # TODO: Add a step for running audit on the experiment data-flow
+        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                     endtime_getter=sleep_after_restart.end_time,
+                                     topics_file='data/voyager-topics.txt'),
+                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                     endtime_getter=sleep_after_restart.end_time,
+                                     topics_file='data/experiment-voyager-topics.txt'))
 
-        run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                 endtime_getter=sleep_after_restart.end_time)
-        self.assertTrue(TestRunnerBuilder('test_restart_datastream')
-                        .add_sequential(control_datastream, sleep_before_restart, restart_datastream,
-                                        sleep_after_restart, kafka_audit, run_ekg)
-                        .build().run())
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_restart.end_time)
+
+        builder = TestRunnerBuilder(test_name=datastream_name) \
+            .add_parallel(*create_datastream) \
+            .add_sequential(sleep_before_restart) \
+            .add_parallel(*restart_datastream) \
+            .add_sequential(sleep_after_restart) \
+            .add_parallel(*kafka_audit) \
+            .add_sequential(ekg_analysis) \
+            .build()
+
+        self.assertTrue(builder.run())
 
     def test_update_datastream_whitelist(self):
-        topic_prefixes = ['voyager-api', 'seas-']
-        list_topics_source = ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=topic_prefixes)
+        control_topic_prefixes = ['voyager-api', 'seas-']
+        experiment_topic_prefixes = ['experiment-voyager-api', 'experiment-seas-']
+
+        list_topics_source = \
+            (ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=control_topic_prefixes),
+             ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=experiment_topic_prefixes))
 
         datastream_name = 'test_update_datastream_whitelist'
-        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-
-        # TODO: Add a step for creating experiment datastream
+        create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                             CreateDatastream(name=datastream_name,
+                                              datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
         sleep_before_update = Sleep(secs=60 * 10)
-        update_datastream = UpdateDatastream(whitelist='^(^voyager-api.*$)|(^seas-.*$)',
-                                             metadata=['system.reuseExistingDestination:false'], name=datastream_name,
-                                             cluster=BrooklinClusterChoice.CONTROL)
 
-        # TODO: Add a step for updating experiment datastream
+        update_datastream = (UpdateDatastream(whitelist='^(^voyager-api.*$)|(^seas-.*$)',
+                                              metadata=['system.reuseExistingDestination:false'], name=datastream_name,
+                                              cluster=BrooklinClusterChoice.CONTROL),
+                             UpdateDatastream(whitelist='^(^experiment-voyager-api.*$)|(^experiment-seas-.*$)',
+                                              metadata=['system.reuseExistingDestination:false'], name=datastream_name,
+                                              cluster=BrooklinClusterChoice.CONTROL))
 
         sleep_after_update = Sleep(secs=60 * 10)
 
         list_topics_destination_after_update = \
-            ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=topic_prefixes)
+            (ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=control_topic_prefixes),
+             ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=experiment_topic_prefixes))
+
         validate_topics_after_update = \
-            ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source.get_topics,
-                destination_topics_getter=list_topics_destination_after_update.get_topics)
+            (ValidateSourceAndDestinationTopicsMatch(
+                source_topics_getter=list_topics_source[0].get_topics,
+                destination_topics_getter=list_topics_destination_after_update[0].get_topics),
+             ValidateSourceAndDestinationTopicsMatch(
+                 source_topics_getter=list_topics_source[1].get_topics,
+                 destination_topics_getter=list_topics_destination_after_update[1].get_topics))
 
-        # TODO: Add a step for validating topics for experiment datastream's whitelist
+        kafka_audit_basic = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                           endtime_getter=sleep_after_update.end_time,
+                                           topics_file='data/voyager-topics.txt'),
+                             RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                           endtime_getter=sleep_after_update.end_time,
+                                           topics_file='data/experiment-voyager-topics.txt'))
 
-        # This audit step validates the first whitelist's completeness since the datastream was initially created
-        kafka_audit_basic = RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                          endtime_getter=sleep_after_update.end_time)
+        kafka_audit_new_topics = (RunKafkaAudit(starttime_getter=update_datastream[0].end_time,
+                                                endtime_getter=sleep_after_update.end_time,
+                                                topics_file='data/voyager-seas-topics.txt'),
+                                  RunKafkaAudit(starttime_getter=update_datastream[1].end_time,
+                                                endtime_getter=sleep_after_update.end_time,
+                                                topics_file='data/experiment-voyager-seas-topics.txt'))
 
-        # TODO: Add a step for running audit on the experiment data-flow for the older whitelist
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_update.end_time)
 
-        # This audit step validates the second whitelist's completeness, and it is only fair to compare counts for the
-        # newer topics from when the whitelist was updated
-        kafka_audit_new_topics = RunKafkaAudit(starttime_getter=update_datastream.end_time,
-                                               endtime_getter=sleep_after_update.end_time,
-                                               topics_file='data/voyager-seas-topics.txt')
+        builder = TestRunnerBuilder(test_name=datastream_name) \
+            .add_parallel(*list_topics_source) \
+            .add_parallel(*create_datastream) \
+            .add_sequential(sleep_before_update) \
+            .add_parallel(*update_datastream) \
+            .add_sequential(sleep_after_update) \
+            .add_parallel(*list_topics_destination_after_update) \
+            .add_parallel(*validate_topics_after_update) \
+            .add_parallel(*kafka_audit_basic) \
+            .add_parallel(*kafka_audit_new_topics) \
+            .add_sequential(ekg_analysis) \
+            .build()
 
-        # TODO: Add a step for running audit on the experiment data-flow for the newer whitelist
-
-        run_ekg = RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                 endtime_getter=sleep_after_update.end_time)
-
-        self.assertTrue(TestRunnerBuilder('test_update_datastream_whitelist')
-                        .add_sequential(list_topics_source, control_datastream, sleep_before_update, update_datastream,
-                                        sleep_after_update, list_topics_destination_after_update,
-                                        validate_topics_after_update, kafka_audit_basic, kafka_audit_new_topics,
-                                        run_ekg)
-                        .build().run())
+        self.assertTrue(builder.run())
 
     def test_multiple_topic_creation_with_traffic(self):
-        test_steps = []
         control_topics_list = [f'voyager-api-bmm-certification-test-{i}' for i in range(10)]
 
         def get_control_topics_list():
             return control_topics_list
 
-        # TODO: Create list of topics matching experiment datastream whitelist
+        experiment_topics_list = [f'experiment-voyager-api-bmm-certification-test-{i}' for i in range(10)]
+
+        def get_experiment_topics_list():
+            return control_topics_list
 
         datastream_name = 'test_multiple_topic_creation_with_traffic'
-        control_datastream = CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL)
-        test_steps.append(control_datastream)
-
-        # TODO: Add a step for creating experiment datastream
+        create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                             CreateDatastream(name=datastream_name,
+                                              datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
         sleep_before_topics_creation = Sleep(secs=60 * 5)
-        test_steps.append(sleep_before_topics_creation)
 
-        create_control_topics = CreateSourceTopics(topics=control_topics_list, delay_seconds=60 * 2)
-        test_steps.append(create_control_topics)
+        create_control_topics = (CreateSourceTopics(topics=control_topics_list, delay_seconds=60 * 2),
+                                 CreateSourceTopics(topics=experiment_topics_list, delay_seconds=60 * 2))
 
-        # TODO: Add test steps for creating topics matching the experiment datasteam whitelist
+        wait_for_topic_on_destination = (ValidateDestinationTopicsExist(topics_getter=get_control_topics_list),
+                                         ValidateDestinationTopicsExist(topics_getter=get_experiment_topics_list))
 
-        # The ordering of when topic existence is validated depends on whether auto topic creation is enabled or not
-        wait_for_topic_on_destination = ValidateDestinationTopicsExist(topics_getter=get_control_topics_list)
-        if DatastreamConfigChoice.CONTROL.value.topic_create:
-            test_steps.append(wait_for_topic_on_destination)
-
-        # TODO: Add test steps to wait for topics on destination for the experiment datasteam whitelist
-
-        produce_traffic = ProduceToSourceTopics(topics=control_topics_list, num_records=10000, record_size=1000)
-        test_steps.append(produce_traffic)
-
-        # TODO: Add test steps for producing traffic to the experiment datasteam's new topics
+        produce_traffic = (ProduceToSourceTopics(topics=control_topics_list, num_records=10000, record_size=1000),
+                           ProduceToSourceTopics(topics=experiment_topics_list, num_records=10000, record_size=1000))
 
         sleep_after_producing_traffic = Sleep(secs=60 * 5)
-        test_steps.append(sleep_after_producing_traffic)
+
+        consume_records = (ConsumeFromDestinationTopics(topics=control_topics_list, num_records=10000),
+                           ConsumeFromDestinationTopics(topics=experiment_topics_list, num_records=10000))
+
+        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
+                                     endtime_getter=sleep_after_producing_traffic.end_time,
+                                     topics_file='data/voyager-topics.txt'),
+                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
+                                     endtime_getter=sleep_after_producing_traffic.end_time,
+                                     topics_file='data/experiment-voyager-topics.txt'))
+
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_producing_traffic.end_time)
+
+        builder = TestRunnerBuilder(test_name=datastream_name) \
+            .add_parallel(*create_datastream) \
+            .add_sequential(sleep_before_topics_creation) \
+            .add_parallel(*create_control_topics)
+
+        if DatastreamConfigChoice.CONTROL.value.topic_create:
+            builder.add_parallel(*wait_for_topic_on_destination)
+
+        builder.add_parallel(*produce_traffic) \
+            .add_sequential(sleep_after_producing_traffic)
 
         if not DatastreamConfigChoice.CONTROL.value.topic_create:
-            test_steps.append(wait_for_topic_on_destination)
+            builder.add_parallel(*wait_for_topic_on_destination)
 
-        consume_records = ConsumeFromDestinationTopics(topics=control_topics_list, num_records=10000)
-        test_steps.append(consume_records)
+        builder.add_parallel(*consume_records) \
+            .add_parallel(*kafka_audit) \
+            .add_sequential(ekg_analysis) \
+            .build()
 
-        # TODO: Add test steps for consuming records from the experiment datasteam's new topics
-
-        test_steps.append(RunKafkaAudit(starttime_getter=control_datastream.end_time,
-                                        endtime_getter=sleep_after_producing_traffic.end_time))
-
-        # TODO: Add a step for running audit on the experiment data-flow
-
-        test_steps.append(RunEkgAnalysis(starttime_getter=control_datastream.end_time,
-                                         endtime_getter=sleep_after_producing_traffic.end_time))
-
-        self.assertTrue(TestRunnerBuilder('test_multiple_topic_creation_with_traffic')
-                        .add_sequential(*test_steps)
-                        .build().run())
+        self.assertTrue(builder.run())
 
     def test_brooklin_cluster_parallel_bounce(self):
         self.assertTrue(restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
