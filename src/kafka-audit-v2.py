@@ -18,6 +18,10 @@ log = logging.getLogger()
 BASE_URL = 'http://kafka-auditing-reporter.corp-lca1.atd.corp.linkedin.com:8332' \
            '/kafka-auditing-reporter/v2/api/completeness'
 
+KAFKA_LVA1_CERT_KEY = 'kafka-lva1-cert'
+KAFKA_LOR1_CERT_KEY = 'kafka-brooklin-cert'
+TOTALS_PER_TIER = 'totalsPerTier'
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Get counts of all BMM topics processed by Kafka Audit V2')
@@ -64,7 +68,7 @@ def get_audit_counts(topic, start_ms, end_ms):
 
 
 def is_cert_tier(topic_counts):
-    return 'cert' in ",".join(topic_counts['totalsPerTier'].keys())
+    return 'cert' in ",".join(topic_counts[TOTALS_PER_TIER].keys())
 
 
 def process(topic, start_ms, end_ms):
@@ -97,9 +101,9 @@ def get_all_topics():
 def print_summary_table(topic_counts):
     total_prod_lva1 = 0
     total_prod_lor1 = 0
-    format_str = "{0: <50} {1: >16} {2: >16} {3: >16} {4: >3.2f}%"
-    header = format_str.replace(': >3.2f', '').format('Topic', 'kafka-lva1-cert', 'kafka-lor1-cert', 'CountDifference',
-                                                      'Complete')
+    format_str = "{0: <50} {1: >20} {2: >20} {3: >16} {4: >3.2f}%"
+    header = format_str.replace(': >3.2f', '').format('Topic', KAFKA_LVA1_CERT_KEY, KAFKA_LOR1_CERT_KEY,
+                                                      'CountDifference', 'Complete')
     print('\n')
     print(topic_counts)
     print('\n')
@@ -107,14 +111,14 @@ def print_summary_table(topic_counts):
     print("=" * len(header))
     for topic in topic_counts:
         try:
-            lva1count = topic_counts[topic]['totalsPerTier']['kafka-lva1-cert']
+            lva1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LVA1_CERT_KEY]
         except:
-            log.error('Counts missing for kafka-lva1-cert tier for topic: {0}'.format(topic))
+            log.error(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             continue
         try:
-            lor1count = topic_counts[topic]['totalsPerTier']['kafka-lor1-cert']
+            lor1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LOR1_CERT_KEY]
         except:
-            log.error('Counts missing for kafka-lor1-cert tier for topic: {0}'.format(topic))
+            log.error(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             continue
         total_prod_lva1 += lva1count
         total_prod_lor1 += lor1count
@@ -139,16 +143,16 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
         skip_count = False
 
         try:
-            lva1count = topic_counts[topic]['totalsPerTier']['kafka-lva1-cert']
+            lva1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LVA1_CERT_KEY]
         except:
-            log.debug('Counts missing for kafka-lva1-cert tier for topic: {0}'.format(topic))
+            log.debug(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             lva1_topic_missing = lva1_topic_missing + 1
             skip_count = True
 
         try:
-            lor1count = topic_counts[topic]['totalsPerTier']['kafka-lor1-cert']
+            lor1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LOR1_CERT_KEY]
         except:
-            log.debug('Counts missing for kafka-lor1-cert tier for topic: {0}'.format(topic))
+            log.debug(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             lor1_topic_missing = lor1_topic_missing + 1
             skip_count = True
 
