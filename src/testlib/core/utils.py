@@ -66,6 +66,7 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
             nonlocal tries
             nonlocal delay
 
+            result = None
             while tries > 0:
                 result = f(*args, **kwargs)
                 if predicate(result):
@@ -74,6 +75,8 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
                 if tries > 0:
                     time.sleep(delay)  # wait...
                     delay *= backoff  # make future wait longer (unless backoff = 1)
+            else:
+                return result
 
         return f_retry  # true decorator -> decorated function
 
@@ -99,7 +102,7 @@ def rate_limit(max_limit, seconds):
         raise ValueError('duration must be greater than zero')
 
     call_count = 0
-    first_call_time = None
+    first_call_time = 0
 
     def deco_rate_limit(f):
         @wraps(f)
@@ -112,7 +115,7 @@ def rate_limit(max_limit, seconds):
             now = time.time()
 
             # function called for the first time ever, or after a long while (> seconds) since first_call_time
-            if not first_call_time or now - first_call_time > seconds:
+            if (first_call_time == 0) or (now - first_call_time > seconds):
                 first_call_time = now
                 f(*args, **kwargs)
                 call_count = 1

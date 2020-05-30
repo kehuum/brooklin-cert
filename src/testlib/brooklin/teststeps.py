@@ -183,7 +183,11 @@ class GetLeaderBrooklinHostMixIn(object):
     a Brooklin cluster"""
 
     def __init__(self, cluster: BrooklinClusterChoice, **kwargs):
-        super().__init__(hostname_getter=lambda: GetLeaderBrooklinHostMixIn.get_leader_host(cluster), **kwargs)
+        self.cluster = cluster
+        super().__init__(hostname_getter=self._get_leader_host, **kwargs)
+
+    def _get_leader_host(self):
+        return GetLeaderBrooklinHostMixIn.get_leader_host(self.cluster)
 
     @staticmethod
     def get_leader_host(cluster):

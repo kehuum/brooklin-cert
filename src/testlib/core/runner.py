@@ -3,6 +3,7 @@ import logging
 import subprocess
 
 from concurrent.futures.process import ProcessPoolExecutor
+from functools import partial
 from itertools import chain
 from operator import methodcaller, itemgetter
 from typing import Iterable, List, Union, Callable
@@ -40,13 +41,10 @@ class TestRunnerBuilder(object):
 
     @staticmethod
     def _get_pretest_steps():
-        steps = []
-        for cluster in (BrooklinClusterChoice.CONTROL, BrooklinClusterChoice.EXPERIMENT):
-            steps += [PingBrooklinCluster(cluster=cluster),
-                      KillBrooklinCluster(cluster=cluster, skip_if_dead=True),
-                      NukeZooKeeper(cluster=cluster),
-                      StartBrooklinCluster(cluster=cluster)]
-        return steps
+        clusters = BrooklinClusterChoice.CONTROL, BrooklinClusterChoice.EXPERIMENT
+        step_types = [PingBrooklinCluster, partial(KillBrooklinCluster, skip_if_dead=True), NukeZooKeeper,
+                      StartBrooklinCluster]
+        return [ParallelTestStepGroup(*map(step, clusters)) for step in step_types]
 
 
 class TestRunner(object):

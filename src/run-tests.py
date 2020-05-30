@@ -16,7 +16,7 @@ from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, ListTop
     ValidateSourceAndDestinationTopicsMatch, CreateSourceTopics, ValidateDestinationTopicsExist, \
     ProduceToSourceTopics, ConsumeFromDestinationTopics
 
-logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 
 
 class BasicTests(unittest.TestCase):
