@@ -19,6 +19,7 @@ class TestRunnerBuilder(object):
 
     def __init__(self, test_name):
         self._test_name = test_name
+        self._skip_pretest_steps = False
         self._steps: List[TestStepOrParallelTestStepGroup] = []
 
     def add_sequential(self, *steps: TestStep):
@@ -29,8 +30,13 @@ class TestRunnerBuilder(object):
         self._steps.append(ParallelTestStepGroup(*steps))
         return self
 
+    def skip_pretest_steps(self):
+        self._skip_pretest_steps = True
+        return self
+
     def build(self):
-        return TestRunner(self._test_name, chain(TestRunnerBuilder._get_pretest_steps(), self._steps))
+        pretest_steps = [] if self._skip_pretest_steps else TestRunnerBuilder._get_pretest_steps()
+        return TestRunner(self._test_name, chain(pretest_steps, self._steps))
 
     @staticmethod
     def _get_pretest_steps():
