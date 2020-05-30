@@ -32,15 +32,15 @@ def apply_revert_brooklin_host(
 
     sleep_after_revert = Sleep(secs=60 * 10)
 
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_revert.end_time)
+
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_apply.end_time,
+                                 endtime_getter=sleep_after_revert.end_time,
                                  topics_file='data/voyager-topics.txt'),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_apply.end_time,
+                                 endtime_getter=sleep_after_revert.end_time,
                                  topics_file='data/experiment-voyager-topics.txt'))
-
-    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                  endtime_getter=sleep_after_apply.end_time)
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \
@@ -49,8 +49,8 @@ def apply_revert_brooklin_host(
         .add_sequential(sleep_after_apply) \
         .add_parallel(*revert_brooklin_host) \
         .add_sequential(sleep_after_revert) \
-        .add_parallel(*kafka_audit) \
         .add_sequential(ekg_analysis) \
+        .add_parallel(*kafka_audit) \
         .build()
 
 
@@ -83,6 +83,9 @@ def restart_brooklin_cluster(datastream_name, host_concurrency) -> TestRunner:
 
     sleep_after_cluster_restart = Sleep(secs=60 * 10)
 
+    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                  endtime_getter=sleep_after_cluster_restart.end_time)
+
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_cluster_restart.end_time,
                                  topics_file='data/voyager-topics.txt'),
@@ -90,14 +93,11 @@ def restart_brooklin_cluster(datastream_name, host_concurrency) -> TestRunner:
                                  endtime_getter=sleep_after_cluster_restart.end_time,
                                  topics_file='data/experiment-voyager-topics.txt'))
 
-    ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                  endtime_getter=sleep_after_cluster_restart.end_time)
-
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \
         .add_sequential(sleep_before_cluster_restart) \
         .add_parallel(*restart_brooklin) \
         .add_sequential(sleep_after_cluster_restart) \
-        .add_parallel(*kafka_audit) \
         .add_sequential(ekg_analysis) \
+        .add_parallel(*kafka_audit) \
         .build()

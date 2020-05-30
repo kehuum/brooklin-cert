@@ -30,18 +30,18 @@ class BasicTests(unittest.TestCase):
 
         sleep = Sleep(secs=60 * 15)
 
+        run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
+
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time,
                                      topics_file='data/voyager-topics.txt'),
                        RunKafkaAudit(starttime_getter=create_datastream[1].end_time, endtime_getter=sleep.end_time,
                                      topics_file='data/experiment-voyager-topics.txt'))
 
-        run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
-
         builder = TestRunnerBuilder('test_basic') \
             .add_parallel(*create_datastream) \
             .add_sequential(sleep) \
-            .add_parallel(*kafka_audit) \
             .add_sequential(run_ekg) \
+            .add_parallel(*kafka_audit) \
             .build()
 
         self.assertTrue(builder.run())
@@ -59,6 +59,9 @@ class BasicTests(unittest.TestCase):
 
         sleep_after_restart = Sleep(secs=60 * 10)
 
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_restart.end_time)
+
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                      endtime_getter=sleep_after_restart.end_time,
                                      topics_file='data/voyager-topics.txt'),
@@ -66,16 +69,13 @@ class BasicTests(unittest.TestCase):
                                      endtime_getter=sleep_after_restart.end_time,
                                      topics_file='data/experiment-voyager-topics.txt'))
 
-        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_restart.end_time)
-
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
             .add_sequential(sleep_before_restart) \
             .add_parallel(*restart_datastream) \
             .add_sequential(sleep_after_restart) \
-            .add_parallel(*kafka_audit) \
             .add_sequential(ekg_analysis) \
+            .add_parallel(*kafka_audit) \
             .build()
 
         self.assertTrue(builder.run())
@@ -100,7 +100,7 @@ class BasicTests(unittest.TestCase):
                                               cluster=BrooklinClusterChoice.CONTROL),
                              UpdateDatastream(whitelist='^(^experiment-voyager-api.*$)|(^experiment-seas-.*$)',
                                               metadata=['system.reuseExistingDestination:false'], name=datastream_name,
-                                              cluster=BrooklinClusterChoice.CONTROL))
+                                              cluster=BrooklinClusterChoice.EXPERIMENT))
 
         sleep_after_update = Sleep(secs=60 * 10)
 
@@ -116,6 +116,9 @@ class BasicTests(unittest.TestCase):
                  source_topics_getter=list_topics_source[1].get_topics,
                  destination_topics_getter=list_topics_destination_after_update[1].get_topics))
 
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_update.end_time)
+
         kafka_audit_basic = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                            endtime_getter=sleep_after_update.end_time,
                                            topics_file='data/voyager-topics.txt'),
@@ -130,9 +133,6 @@ class BasicTests(unittest.TestCase):
                                                 endtime_getter=sleep_after_update.end_time,
                                                 topics_file='data/experiment-voyager-seas-topics.txt'))
 
-        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_update.end_time)
-
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*list_topics_source) \
             .add_parallel(*create_datastream) \
@@ -141,9 +141,9 @@ class BasicTests(unittest.TestCase):
             .add_sequential(sleep_after_update) \
             .add_parallel(*list_topics_destination_after_update) \
             .add_parallel(*validate_topics_after_update) \
+            .add_sequential(ekg_analysis) \
             .add_parallel(*kafka_audit_basic) \
             .add_parallel(*kafka_audit_new_topics) \
-            .add_sequential(ekg_analysis) \
             .build()
 
         self.assertTrue(builder.run())
@@ -180,15 +180,15 @@ class BasicTests(unittest.TestCase):
         consume_records = (ConsumeFromDestinationTopics(topics=control_topics_list, num_records=10000),
                            ConsumeFromDestinationTopics(topics=experiment_topics_list, num_records=10000))
 
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_after_producing_traffic.end_time)
+
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                      endtime_getter=sleep_after_producing_traffic.end_time,
                                      topics_file='data/voyager-topics.txt'),
                        RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                      endtime_getter=sleep_after_producing_traffic.end_time,
                                      topics_file='data/experiment-voyager-topics.txt'))
-
-        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_producing_traffic.end_time)
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
@@ -205,8 +205,8 @@ class BasicTests(unittest.TestCase):
             builder.add_parallel(*wait_for_topic_on_destination)
 
         builder.add_parallel(*consume_records) \
-            .add_parallel(*kafka_audit) \
             .add_sequential(ekg_analysis) \
+            .add_parallel(*kafka_audit) \
             .build()
 
         self.assertTrue(builder.run())
@@ -282,7 +282,7 @@ class KafkaErrorInducingTests(unittest.TestCase):
     def test_restart_destination_kafka_cluster(self):
         self.assertTrue(
             restart_kafka_cluster('test_restart_destination_kafka_cluster', KafkaClusterChoice.DESTINATION, 10)
-                .run())
+            .run())
 
 
 if __name__ == '__main__':
