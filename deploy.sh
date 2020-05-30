@@ -27,6 +27,7 @@ PROMPT_FOR_2FA=1
 CLEAN=0
 VERBOSE=0
 
+CA_BUNDLE_FILE="/etc/riddler/ca-bundle.crt"
 DEPENDENCIES_DIR=dependencies
 DEPENDENCIES_TARBALL="$DEPENDENCIES_DIR.tar.gz"
 DIST_DIR=dist
@@ -214,7 +215,7 @@ if [[ $CLEAN == 0 ]]; then
 
     # Copy scripts and tarballs
     echo "Copying scripts and tarballs to $TEST_DRIVER_HOST"
-    redirect_output scp "../$INSTALL_DRIVER_SCRIPT" "../$GEN_CERT_SCRIPT" $DEPENDENCIES_TARBALL $DIST_DIR/brooklin-certification-*.tar.gz "$USER"@"$TEST_DRIVER_HOST":~/
+    redirect_output scp "../$INSTALL_DRIVER_SCRIPT" "../$GEN_CERT_SCRIPT" $CA_BUNDLE_FILE $DEPENDENCIES_TARBALL $DIST_DIR/brooklin-certification-*.tar.gz "$USER"@"$TEST_DRIVER_HOST":~/
     exit_on_failure "Copying scripts tarball failed"
 
     echo "Installing test driver on $TEST_DRIVER_HOST"

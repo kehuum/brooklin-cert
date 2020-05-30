@@ -3,10 +3,11 @@
 SCRIPT_NAME=$(basename "$0")
 CLEAN_OPTION="--clean"
 DEPENDENCIES_DIR=dependencies
-DEPENDECIES_TARBALL="$DEPENDENCIES_DIR.tar.gz"
-SCRIPTS_DIR="brooklin-certification-*"
-SCRIPTS_TARBALL="$SCRIPTS_DIR.tar.gz"
+TARBALL_EXT=".tar.gz"
+DEPENDECIES_TARBALL="${DEPENDENCIES_DIR}${TARBALL_EXT}"
+SCRIPTS_TARBALL="brooklin-certification-*$TARBALL_EXT"
 GEN_CERT_SCRIPT="gen-cert.sh"
+CA_BUNDLE_FILE="ca-bundle.crt"
 
 CLEAN=0
 VERBOSE=0
@@ -61,13 +62,17 @@ case $key in
 esac
 done
 
-SCRIPTS_DIR=$(find . -name "$SCRIPTS_DIR" -type d)
 SCRIPTS_TARBALL=$(find . -name "$SCRIPTS_TARBALL" -type f)
+SCRIPTS_DIR=${SCRIPTS_TARBALL%$TARBALL_EXT}
 
 if [[ $CLEAN == 0 ]]; then
   echo "Extracting scripts tarball ..."
   redirect_output tar -zxvf "$SCRIPTS_TARBALL"
   exit_on_failure "Extracting scripts tarball failed"
+
+  echo "Moving $CA_BUNDLE_FILE into scripts directory"
+  redirect_output mv $CA_BUNDLE_FILE $SCRIPTS_DIR
+  exit_on_failure "Failed to move $CA_BUNDLE_FILE into scripts directory"
 
   echo "Extracting dependencies tarball ..."
   redirect_output tar -zxvf $DEPENDECIES_TARBALL

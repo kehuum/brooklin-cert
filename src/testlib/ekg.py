@@ -1,7 +1,7 @@
 import logging
 import requests
 
-from testlib import DEFAULT_SSL_CAFILE
+from testlib import ALT_SSL_CAFILE
 from testlib.brooklin.environment import BROOKLIN_PRODUCT_NAME, BROOKLIN_SERVICE_NAME, BrooklinClusterChoice
 from testlib.core.teststeps import TestStep
 from testlib.core.utils import send_request, retry, OperationFailedError, typename, \
@@ -28,8 +28,7 @@ class EkgTarget(object):
 
 
 class EkgClient(object):
-    # TODO DATAPIPES-18779: Communicate with EKG over HTTPS instead of HTTP
-    ANALYSIS_URL = 'http://mega.tools.corp.linkedin.com/api/v1/analyses'
+    ANALYSIS_URL = 'https://mega.tools.corp.linkedin.com/api/v1/analyses'
 
     def run_analysis(self, product, app, control_target: EkgTarget, exp_target: EkgTarget, start_secs, end_secs,
                      ssl_cafile):
@@ -59,7 +58,8 @@ class EkgClient(object):
         return analysis_id, self._get_analysis_status(analysis_id, ssl_cafile)
 
     def _submit_analysis_request(self, request_body, ssl_cafile):
-        response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body),
+        response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body,
+                                                              verify=ssl_cafile),
                                 error_message='Failed to submit analysis request to EKG server')
 
         response_json: dict = EkgClient._get_response_json(response)
@@ -75,7 +75,7 @@ class EkgClient(object):
         url = f'{self.ANALYSIS_URL}/{analysis_id}'
 
         logging.info(f'Retrieving analysis report ID: {analysis_id}')
-        response = send_request(send_fn=lambda: requests.get(url),
+        response = send_request(send_fn=lambda: requests.get(url, verify=ssl_cafile),
                                 error_message=f'Failed to retrieve EKG analysis report with ID: {analysis_id}')
         response_json: dict = EkgClient._get_response_json(response)
         status = response_json.get('data', {}).get('attributes', {}).get('status')
@@ -127,7 +127,7 @@ class RunEkgAnalysis(TestStep):
                                      tag=BrooklinClusterChoice.CONTROL.value.tag),
             exp_target=EkgTarget(fabric=BrooklinClusterChoice.EXPERIMENT.value.fabric,
                                  tag=BrooklinClusterChoice.EXPERIMENT.value.tag),
-            start_secs=self.starttime_getter(), end_secs=self.endtime_getter(), ssl_cafile=DEFAULT_SSL_CAFILE)
+            start_secs=self.starttime_getter(), end_secs=self.endtime_getter(), ssl_cafile=ALT_SSL_CAFILE)
 
         crt_url = f'https://crt.prod.linkedin.com/#/testing/ekg/analyses/{analysis_id}'
         if status != ANALYSIS_PASS:
