@@ -45,13 +45,13 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
         - tries:        the number of times to try calling the decorated function, must be at least 0
         - delay:        sets the initial delay in seconds, must be greater than 0
         - backoff:      sets the factor by which the delay should lengthen after each failure, must be
-                        greater than 1 or else it isn't really a backoff
+                        at least 1 (no backoff)
         - predicate:    a predicate that is applied to the return value of the decorated function to
                         determine if it succeeded or not
     """
 
-    if backoff <= 1:
-        raise ValueError("backoff must be greater than 1")
+    if backoff < 1:
+        raise ValueError("backoff must be 1 or greater")
 
     tries = math.floor(tries)
     if tries < 0:
@@ -73,7 +73,7 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
                 tries -= 1  # consume an attempt
                 if tries > 0:
                     time.sleep(delay)  # wait...
-                    delay *= backoff  # make future wait longer
+                    delay *= backoff  # make future wait longer (unless backoff = 1)
 
         return f_retry  # true decorator -> decorated function
 

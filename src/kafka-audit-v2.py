@@ -10,7 +10,7 @@ import requests
 import tqdm
 
 from multiprocessing.pool import ThreadPool as Pool
-from testlib.core.utils import csv
+from testlib.core.utils import csv, retry
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()
@@ -168,13 +168,10 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
     return float(100 - threshold) <= value < float(100 + threshold)
 
 
-def main():
-    args = parse_args()
-
-    if args.output:
-        sys.stdout = open(args.output, 'w')
-
-    log.info('Checking audit FROM "{0}" TO "{1}"'.format(time.ctime(args.startms / 1000), time.ctime(args.endms / 1000)))
+@retry(tries=7, delay=5 * 60, backoff=1)
+def run_audit(args):
+    log.info('Checking audit FROM "{0}" TO "{1}"'.format(
+        time.ctime(args.startms / 1000), time.ctime(args.endms / 1000)))
     if not args.topics:
         topics = get_all_topics()
         topic_counts_map = find_cert_tier_counts(topics, args.startms, args.endms)
@@ -183,9 +180,19 @@ def main():
 
     print_summary_table(topic_counts_map)
     print('\nCounts were from beginTimestamp={0}({1}) to endTimestamp={2}({3})'.format(
-            args.startms, time.ctime(args.startms / 1000), args.endms, time.ctime(args.endms / 1000)))
+        args.startms, time.ctime(args.startms / 1000), args.endms, time.ctime(args.endms / 1000)))
     is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.threshold)
     print('Aggregate audit counting pass threshold {}, passed: {}'.format(args.threshold, is_pass))
+    return is_pass
+
+
+def main():
+    args = parse_args()
+
+    if args.output:
+        sys.stdout = open(args.output, 'w')
+
+    is_pass = run_audit(args)
 
     sys.stdout = sys.__stdout__
 

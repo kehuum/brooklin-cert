@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from abc import ABC, abstractmethod
-from testlib.core.utils import typename
+from testlib.core.utils import typename, retry
 from testlib.brooklin.datastream import Datastream
 
 BASE_TOOL_COMMAND = 'brooklin-tool datastream'
@@ -360,7 +360,8 @@ class UpdateDatastream(SimpleDatastreamCommand):
     def validate(self):
         """Validate datastream exists and its status is READY"""
         get_command = GetDatastream(self.args)
-        datastream = get_command.execute()
+        execute_command = retry(tries=3, delay=30, predicate=lambda result: result.is_ready)(get_command.execute)
+        datastream = execute_command()
         if not datastream.is_ready:
             raise DatastreamCommandFailedError(f"Datastream {self.args.name} updated but its status is: "
                                                f"{datastream.status}")
