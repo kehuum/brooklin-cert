@@ -168,7 +168,7 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
     return float(100 - threshold) <= value < float(100 + threshold)
 
 
-@retry(tries=7, delay=5 * 60, backoff=1)
+@retry(tries=16, delay=2 * 60, backoff=1)
 def run_audit(args):
     log.info('Checking audit FROM "{0}" TO "{1}"'.format(
         time.ctime(args.startms / 1000), time.ctime(args.endms / 1000)))

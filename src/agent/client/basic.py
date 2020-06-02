@@ -15,7 +15,7 @@ class XMLRPCClientBase(AbstractContextManager):
         self.__port = port
         url = f"http://{hostname}:{port}/"
         self.__proxy = ServerProxy(url)
-        logging.info(f"Client configured to connect to {url}")
+        logging.debug(f"Client configured to connect to {url}")
 
     def __enter__(self):
         self.__proxy.__enter__()

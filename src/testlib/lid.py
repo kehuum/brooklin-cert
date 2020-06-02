@@ -78,7 +78,7 @@ class LidClient(object):
                      error_message='Failed to submit restart request to LID server')
         return request_id
 
-    @retry(tries=10, delay=60, backoff=2,
+    @retry(tries=16, delay=60 * 1, backoff=1,
            predicate=lambda deployment_request: deployment_request.is_successful or deployment_request.is_failed)
     def _get_deployment_request(self, request_id, fabric):
         url = f'{LidClient._lid_deployments_url(fabric)}/{request_id}'

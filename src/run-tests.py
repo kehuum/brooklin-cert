@@ -211,6 +211,10 @@ class BasicTests(unittest.TestCase):
 
         self.assertTrue(builder.run())
 
+
+class BrooklinClusterBounceTests(unittest.TestCase):
+    """All tests involving cluster restarts that use LID"""
+
     def test_brooklin_cluster_parallel_bounce(self):
         self.assertTrue(restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100)
                         .run())
@@ -239,10 +243,12 @@ class BrooklinErrorInducingTests(unittest.TestCase):
         self.assertTrue(stop_start_brooklin_host('test_stop_leader_brooklin_host', True)
                         .run())
 
+    @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_random_brooklin_host(self):
         self.assertTrue(pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False)
                         .run())
 
+    @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_leader_brooklin_host(self):
         self.assertTrue(pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True)
                         .run())

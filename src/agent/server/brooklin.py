@@ -63,7 +63,7 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
     def kill_brooklin(self, skip_if_dead=False) -> bool:
         pid = XMLRPCBrooklinServerMixIn.get_pid()
 
-        if skip_if_dead and not is_process_running(pid):
+        if skip_if_dead and not is_process_running(pid)[0]:
             logging.info(f"Skipped killing Brooklin because PID {pid} is not running and skip_if_dead is True")
             return False
 

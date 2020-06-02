@@ -70,7 +70,7 @@ class EkgClient(object):
                                        f'contain analysis ID:\n{response_json}')
         return int(analysis_id)
 
-    @retry(tries=10, delay=60, backoff=2, predicate=lambda status: status in {ANALYSIS_PASS, ANALYSIS_FAIL})
+    @retry(tries=16, delay=60 * 1, backoff=1, predicate=lambda status: status in {ANALYSIS_PASS, ANALYSIS_FAIL})
     def _get_analysis_status(self, analysis_id, ssl_cafile):
         url = f'{self.ANALYSIS_URL}/{analysis_id}'
 
