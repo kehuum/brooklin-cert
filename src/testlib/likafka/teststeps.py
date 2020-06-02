@@ -11,7 +11,7 @@ from agent.client.kafka import KafkaDevAgentClient
 from kafka import KafkaProducer, KafkaConsumer, TopicPartition
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep, Sleep
-from testlib.core.utils import OperationFailedError, retry
+from testlib.core.utils import OperationFailedError, retry, typename
 from testlib.likafka.admin import AdminClient
 from testlib.likafka.cruisecontrol import CruiseControlClient
 from testlib.likafka.environment import KafkaClusterChoice
@@ -39,6 +39,9 @@ class RunKafkaAudit(RunPythonCommand):
                f'--topicsfile {self.topics_file} ' \
                f'--startms {self.starttime_getter() * 1000} ' \
                f'--endms {self.endtime_getter() * 1000}'
+
+    def __str__(self):
+        return f'{typename(self)}(topics_file: {self.topics_file})'
 
 
 class ManipulateKafkaHost(TestStep):
@@ -86,6 +89,10 @@ class ManipulateKafkaHost(TestStep):
 
     def invoke_client_cleanup_function(self, client):
         pass
+
+    def __str__(self):
+        host = self.get_host() or 'Unknown'
+        return f'{typename(self)}(host: {host})'
 
 
 class StopRandomKafkaHost(ManipulateKafkaHost):
@@ -240,6 +247,11 @@ class CreateSourceTopic(TestStep):
     def cleanup(self):
         self.client.delete_topic(self.topic_name)
 
+    def __str__(self):
+        return f'{typename(self)}(topic: {self.topic_name}, ' \
+               f'partitions: {self.partitions}, ' \
+               f'replication factor: {self.replication_factor})'
+
 
 class CreateSourceTopics(TestStep):
     """Test step for creating a list of topics in batches with optional delays"""
@@ -289,7 +301,7 @@ class ListTopics(TestStep):
         if topic_prefixes_filter is None:
             topic_prefixes_filter = ['']
 
-        self.cluster = cluster.value
+        self.cluster = cluster
         self.topic_prefixes_filter = topic_prefixes_filter
         self.ssl_certfile = ssl_certfile
         self.topics = None
@@ -297,11 +309,14 @@ class ListTopics(TestStep):
     def run_test(self):
         prefixes = '|'.join(re.escape(p) for p in self.topic_prefixes_filter)
         re_prefixes = f'^({prefixes})'
-        client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
+        client = AdminClient([self.cluster.value.bootstrap_servers], self.ssl_certfile)
         self.topics = [t for t in client.list_topics() if re.match(re_prefixes, t)]
 
     def get_topics(self):
         return self.topics
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'
 
 
 class DeleteTopics(TestStep):
@@ -340,6 +355,9 @@ class DeleteTopics(TestStep):
 
         if self.validate:
             ValidateTopicsDoNotExist(topics_getter=self.topics_getter, cluster=self.cluster).run()
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'
 
 
 class ConsumeFromDestinationTopic(TestStep):
@@ -435,6 +453,9 @@ class ConsumeFromDestinationTopic(TestStep):
         if key < max_key and key not in keys_consumed:
             raise OperationFailedError(f'Current key {key} is less than max key {max_key} but was not seen before')
 
+    def __str__(self):
+        return f'{typename(self)}(topic: {self.topic})'
+
 
 class ConsumeFromDestinationTopics(TestStep):
     """Test step to consume from a list of topics in the destination Kafka cluster"""
@@ -492,6 +513,9 @@ class ProduceToSourceTopic(TestStep):
             key = str.encode(f'{i}')
             producer.send(topic=self.topic, key=key, value=payload)
 
+    def __str__(self):
+        return f'{typename(self)}(topic: {self.topic})'
+
 
 class ProduceToSourceTopics(TestStep):
     """Test step to produce load to a set of topics in the source Kafka cluster"""
@@ -522,8 +546,11 @@ class PerformKafkaPreferredLeaderElection(TestStep):
         if not cluster:
             raise ValueError(f'Invalid Kafka cluster: {cluster}')
 
-        self.cluster = cluster.value
+        self.cluster = cluster
 
     def run_test(self):
-        ple = CruiseControlClient(self.cluster.cc_endpoint)
+        ple = CruiseControlClient(self.cluster.value.cc_endpoint)
         ple.perform_preferred_leader_election()
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'

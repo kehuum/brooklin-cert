@@ -8,6 +8,7 @@ from typing import Union
 from kazoo.client import KazooClient
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.brooklin.environment import BrooklinClusterChoice
+from testlib.core.utils import typename
 from testlib.lid import LidClient
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
@@ -52,6 +53,9 @@ class TestStep(ABC):
     def run_test(self):
         pass
 
+    def __str__(self):
+        return typename(self)
+
 
 class ParallelTestStepGroup(object):
     """Represents a collection of TestSteps that are executed in parallel"""
@@ -62,6 +66,10 @@ class ParallelTestStepGroup(object):
     @property
     def steps(self):
         return self._steps
+
+    def __str__(self):
+        steps = [str(s) for s in self._steps]
+        return f'[{", ".join(steps)}]'
 
 
 class RunPythonCommand(TestStep, ABC):
@@ -113,6 +121,9 @@ class Sleep(TestStep):
         logging.info(f'Sleeping for {self._secs} seconds')
         time.sleep(self._secs)
 
+    def __str__(self):
+        return f'{typename(self)}(secs: {self._secs})'
+
 
 class RestartCluster(TestStep):
     """Test step to restart a Kafka/Brooklin cluster"""
@@ -129,7 +140,7 @@ class RestartCluster(TestStep):
         if not ssl_cafile:
             raise ValueError(f'The SSL CA path must be provided')
 
-        self.cluster = cluster.value
+        self.cluster = cluster
         self.product_name = cluster.product_name
         self.host_concurrency = host_concurrency
         self.ssl_certfile = ssl_certfile
@@ -137,8 +148,11 @@ class RestartCluster(TestStep):
 
     def run_test(self):
         lid_client = LidClient(ssl_certfile=self.ssl_certfile, ssl_cafile=self.ssl_cafile)
-        lid_client.restart(product=self.product_name, fabric=self.cluster.fabric, product_tag=self.cluster.tag,
-                           host_concurrency=self.host_concurrency)
+        lid_client.restart(product=self.product_name, fabric=self.cluster.value.fabric,
+                           product_tag=self.cluster.value.tag, host_concurrency=self.host_concurrency)
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'
 
 
 class NukeZooKeeper(TestStep):
@@ -152,19 +166,22 @@ class NukeZooKeeper(TestStep):
 
     def __init__(self, cluster: BrooklinClusterChoice):
         super().__init__()
-        self.cluster = cluster.value
+        self.cluster = cluster
 
     def run_test(self):
-        zk_client = KazooClient(hosts=self.cluster.zk_dns)
+        zk_client = KazooClient(hosts=self.cluster.value.zk_dns)
 
         try:
             zk_client.start()
-            root_znode = self.cluster.zk_root_znode
+            root_znode = self.cluster.value.zk_root_znode
             for child_znode in zk_client.get_children(root_znode):
                 zk_client.delete(f'{root_znode}/{child_znode}', recursive=True)
         finally:
             zk_client.stop()
             zk_client.close()
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'
 
 
 class GetRandomHostMixIn(object):

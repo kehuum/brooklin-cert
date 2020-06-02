@@ -10,7 +10,6 @@ from typing import Iterable, List, Union, Callable
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.brooklin.teststeps import KillBrooklinCluster, StartBrooklinCluster, PingBrooklinCluster
 from testlib.core.teststeps import TestStep, NukeZooKeeper, ParallelTestStepGroup
-from testlib.core.utils import typename
 
 TestStepOrParallelTestStepGroup = Union[TestStep, ParallelTestStepGroup]
 
@@ -55,14 +54,17 @@ class TestRunner(object):
         self._steps = steps
 
     def run(self):
-        return self._run_steps(self._steps)
+        logging.info(f"Started running test: {self._test_name}")
+        success = self._run_steps(self._steps)
+        logging.info(f"Finished running test: {self._test_name}, status: {'PASS' if success else 'FAIL'}")
+        return success
 
     def _run_steps(self, steps: Iterable[TestStepOrParallelTestStepGroup]):
         test_success = True
         cleanup_steps = []
 
         for s in steps:
-            step_name = f'{self._test_name}:{typename(s)}'
+            step_name = f'{self._test_name}:{s}'
             cleanup_steps.append(s)
 
             logging.info(f'Running test step {step_name}')
@@ -73,7 +75,7 @@ class TestRunner(object):
                 break
 
         for c in reversed(cleanup_steps):
-            step_name = f'{self._test_name}:{typename(c)}'
+            step_name = f'{self._test_name}:{c}'
             logging.info(f'Running cleanup test step {step_name}')
             success, message = self._cleanup(c)
             if not success:
@@ -118,7 +120,7 @@ class TestRunner(object):
         try:
             fn_caller(step)  # execute the specified function
         except Exception as err:
-            error_message = [f'Test step {typename(step)} failed with error: {err}']
+            error_message = [f'Test step {step} failed with error: {err}']
             if isinstance(err, subprocess.CalledProcessError):
                 if err.stdout:
                     error_message += [f'stdout:\n{err.stdout.strip()}']

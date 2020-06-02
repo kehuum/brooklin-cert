@@ -7,7 +7,7 @@ from agent.client.brooklin import XMLRPCBrooklinClient
 from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.core.teststeps import RunPythonCommand, TestStep, GetRandomHostMixIn
-from testlib.core.utils import OperationFailedError
+from testlib.core.utils import OperationFailedError, typename
 from testlib.likafka.teststeps import KafkaClusterChoice
 from testlib.range import list_hosts
 
@@ -30,6 +30,7 @@ class CreateDatastream(RunPythonCommand):
         if not cert:
             raise ValueError(f'Invalid cert: {cert}')
 
+        self.datastream_config = datastream_config
         self.cluster = datastream_config.value.cluster.value
         self.num_tasks = datastream_config.value.num_tasks
         self.topic_create = datastream_config.value.topic_create
@@ -63,6 +64,9 @@ class CreateDatastream(RunPythonCommand):
 
         return command
 
+    def __str__(self):
+        return f'{typename(self)}(datastream_config: {self.datastream_config})'
+
 
 class RestartDatastream(RunPythonCommand):
     """Test step for restarting a datastream"""
@@ -76,7 +80,7 @@ class RestartDatastream(RunPythonCommand):
         if not cert:
             raise ValueError(f'Invalid cert: {cert}')
 
-        self.cluster = cluster.value
+        self.cluster = cluster
         self.name = name
         self.cert = cert
 
@@ -85,7 +89,10 @@ class RestartDatastream(RunPythonCommand):
         return f'{DATASTREAM_CRUD_SCRIPT} restart ' \
                f'-n {self.name} ' \
                f'--cert {self.cert} ' \
-               f'-f {self.cluster.fabric} -t {self.cluster.tag}'
+               f'-f {self.cluster.value.fabric} -t {self.cluster.value.tag}'
+
+    def __str__(self):
+        return f'{typename(self)}(name: {self.name}, cluster: {self.cluster})'
 
 
 class UpdateDatastream(RunPythonCommand):
@@ -103,7 +110,7 @@ class UpdateDatastream(RunPythonCommand):
         if not metadata:
             raise ValueError(f'At least one metadata property must be specified: {metadata}')
 
-        self.cluster = cluster.value
+        self.cluster = cluster
         self.name = name
         self.cert = cert
         self.metadata = metadata
@@ -114,7 +121,7 @@ class UpdateDatastream(RunPythonCommand):
         command = f'{DATASTREAM_CRUD_SCRIPT} update ' \
                   f'-n {self.name} ' \
                   f'--cert {self.cert} ' \
-                  f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
+                  f'-f {self.cluster.value.fabric} -t {self.cluster.value.tag} ' \
                   f'--force --restart '
 
         for metadata in self.metadata:
@@ -124,6 +131,9 @@ class UpdateDatastream(RunPythonCommand):
             command += f'--newwhitelist "{self.whitelist}" '
 
         return command
+
+    def __str__(self):
+        return f'{typename(self)}(name: {self.name}, cluster: {self.cluster})'
 
 
 # Base steps
@@ -153,6 +163,10 @@ class ManipulateBrooklinHost(TestStep):
     def invoke_client_function(self, client):
         pass
 
+    def __str__(self):
+        host = self.get_host() or 'Unknown'
+        return f'{typename(self)}(host: {host})'
+
 
 class ManipulateBrooklinCluster(TestStep):
     """Base class for any test step that needs to execute an action on all the hosts of an entire
@@ -162,17 +176,20 @@ class ManipulateBrooklinCluster(TestStep):
 
     def __init__(self, cluster: BrooklinClusterChoice, step_class: Type[ManipulateBrooklinHost]):
         super().__init__()
-        self.cluster = cluster.value
+        self.cluster = cluster
         self.step_class = step_class
 
     def run_test(self):
-        for host in list_hosts(fabric=self.cluster.fabric, tag=self.cluster.tag):
+        for host in list_hosts(fabric=self.cluster.value.fabric, tag=self.cluster.value.tag):
             host_step = self.step_class(hostname_getter=lambda: host)
             try:
                 host_step.run()
             except Exception as err:
                 raise OperationFailedError(
                     message=f'Executing cluster action of type {self.step_class} failed on {host}', cause=err)
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster})'
 
 
 # Single host steps
