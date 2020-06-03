@@ -161,6 +161,15 @@ class BasicTests(unittest.TestCase):
 
         sleep_before_topics_creation = Sleep(secs=60 * 5)
 
+        update_datastream_before_create = (UpdateDatastream(whitelist=None,
+                                                            metadata=['system.auto.offset.reset:earliest'],
+                                                            name=datastream_name,
+                                                            cluster=BrooklinClusterChoice.CONTROL),
+                                           UpdateDatastream(whitelist=None,
+                                                            metadata=['system.auto.offset.reset:earliest'],
+                                                            name=datastream_name,
+                                                            cluster=BrooklinClusterChoice.EXPERIMENT))
+
         create_control_topics = (CreateSourceTopics(topics=control_topics, delay_seconds=60 * 2),
                                  CreateSourceTopics(topics=experiment_topics, delay_seconds=60 * 2))
 
@@ -169,6 +178,15 @@ class BasicTests(unittest.TestCase):
 
         produce_traffic = (ProduceToSourceTopics(topics=control_topics, num_records=10000, record_size=1000),
                            ProduceToSourceTopics(topics=experiment_topics, num_records=10000, record_size=1000))
+
+        update_datastream_after_produce = (UpdateDatastream(whitelist=None,
+                                                            metadata=['system.auto.offset.reset:latest'],
+                                                            name=datastream_name,
+                                                            cluster=BrooklinClusterChoice.CONTROL),
+                                           UpdateDatastream(whitelist=None,
+                                                            metadata=['system.auto.offset.reset:latest'],
+                                                            name=datastream_name,
+                                                            cluster=BrooklinClusterChoice.EXPERIMENT))
 
         sleep_after_producing_traffic = Sleep(secs=60 * 5)
 
@@ -187,17 +205,22 @@ class BasicTests(unittest.TestCase):
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
-            .add_sequential(sleep_before_topics_creation) \
-            .add_parallel(*create_control_topics)
+            .add_sequential(sleep_before_topics_creation)
+
+        if not DatastreamConfigChoice.CONTROL.value.topic_create:
+            builder.add_parallel(*update_datastream_before_create)
+
+        builder.add_parallel(*create_control_topics)
 
         if DatastreamConfigChoice.CONTROL.value.topic_create:
-            builder.add_parallel(*wait_for_topic_on_destination)
+            builder.add_sequential(*wait_for_topic_on_destination)
 
         builder.add_parallel(*produce_traffic) \
             .add_sequential(sleep_after_producing_traffic)
 
         if not DatastreamConfigChoice.CONTROL.value.topic_create:
-            builder.add_parallel(*wait_for_topic_on_destination)
+            builder.add_sequential(*wait_for_topic_on_destination) \
+                .add_parallel(*update_datastream_after_produce)
 
         runner = builder.add_parallel(*consume_records) \
             .add_sequential(ekg_analysis) \
