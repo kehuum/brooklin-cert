@@ -1,4 +1,5 @@
 import argparse
+import logging
 import re
 import time
 import math
@@ -6,6 +7,8 @@ import requests
 
 from typing import Callable, Any, Iterable
 from functools import wraps
+
+log = logging.getLogger(__name__)
 
 
 class OperationFailedError(Exception):
@@ -73,6 +76,7 @@ def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x
                     return result  # function succeeded
                 tries -= 1  # consume an attempt
                 if tries > 0:
+                    log.info(f'Retrying {f.__name__} in {delay} seconds — {tries} attempt(s) remaining')
                     time.sleep(delay)  # wait...
                     delay *= backoff  # make future wait longer (unless backoff = 1)
             else:

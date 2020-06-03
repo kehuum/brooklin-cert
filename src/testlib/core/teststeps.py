@@ -191,8 +191,11 @@ class GetRandomHostMixIn(object):
     that wishes to execute an action against a random host"""
 
     def __init__(self, cluster: Union[BrooklinClusterChoice, KafkaClusterChoice], **kwargs):
-        self.cluster = cluster
-        super().__init__(hostname_getter=self._get_hostname, **kwargs)
+        self.__cluster = cluster
+        super().__init__(hostname_getter=self.__get_hostname, **kwargs)
+        self.__host = None
 
-    def _get_hostname(self):
-        return get_random_host(self.cluster.value.fabric, self.cluster.value.tag)
+    def __get_hostname(self):
+        if self.__host is None:
+            self.__host = get_random_host(self.__cluster.value.fabric, self.__cluster.value.tag)
+        return self.__host

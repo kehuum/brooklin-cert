@@ -91,7 +91,7 @@ class ManipulateKafkaHost(TestStep):
         pass
 
     def __str__(self):
-        host = self.get_host() or 'Unknown'
+        host = self.get_host() or 'TBD'
         return f'{typename(self)}(host: {host})'
 
 
@@ -219,7 +219,7 @@ class ValidateDestinationTopicsExist(TestStep):
         if not self.topics_exist():
             raise OperationFailedError(f'Not all topics have been created on the destination yet: {self.topics}')
 
-    @retry(tries=10, delay=60, backoff=2)
+    @retry(tries=12, delay=60, backoff=1)
     def topics_exist(self):
         all_topics = set(self.client.list_topics())
         return self.topics.issubset(all_topics)

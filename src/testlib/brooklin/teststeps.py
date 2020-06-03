@@ -164,7 +164,7 @@ class ManipulateBrooklinHost(TestStep):
         pass
 
     def __str__(self):
-        host = self.get_host() or 'Unknown'
+        host = self.get_host() or 'TBD'
         return f'{typename(self)}(host: {host})'
 
 
@@ -200,11 +200,11 @@ class GetLeaderBrooklinHostMixIn(object):
     a Brooklin cluster"""
 
     def __init__(self, cluster: BrooklinClusterChoice, **kwargs):
-        self.cluster = cluster
-        super().__init__(hostname_getter=self._get_leader_host, **kwargs)
+        self.__cluster = cluster
+        super().__init__(hostname_getter=self.__get_leader_host, **kwargs)
 
-    def _get_leader_host(self):
-        return GetLeaderBrooklinHostMixIn.get_leader_host(self.cluster)
+    def __get_leader_host(self):
+        return GetLeaderBrooklinHostMixIn.get_leader_host(self.__cluster)
 
     @staticmethod
     def get_leader_host(cluster):
