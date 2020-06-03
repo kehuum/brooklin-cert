@@ -1,6 +1,7 @@
 import logging
 import requests
 
+from typing import Tuple, Union
 from testlib import ALT_SSL_CAFILE
 from testlib.brooklin.environment import BROOKLIN_PRODUCT_NAME, BROOKLIN_SERVICE_NAME, BrooklinClusterChoice
 from testlib.core.teststeps import TestStep
@@ -52,23 +53,30 @@ class EkgClient(object):
                                                    end_secs)
 
         logging.info('Submitting analysis report request to EKG server')
-        analysis_id = self._submit_analysis_request(request_body, ssl_cafile)
+        err, analysis_id = self._submit_analysis_request(request_body, ssl_cafile)
+        if err is not None:
+            raise err
         logging.info(f'Analysis report submitted successfully. Analysis ID: {analysis_id}')
 
         return analysis_id, self._get_analysis_status(analysis_id, ssl_cafile)
 
-    def _submit_analysis_request(self, request_body, ssl_cafile):
-        response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body,
-                                                              verify=ssl_cafile),
-                                error_message='Failed to submit analysis request to EKG server')
+    @retry(tries=10, delay=20, backoff=1, predicate=lambda result: result[0] is None)
+    def _submit_analysis_request(self, request_body, ssl_cafile) -> Tuple[Union[None, OperationFailedError], int]:
+        try:
+            response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body,
+                                                                  verify=ssl_cafile),
+                                    error_message='Failed to submit analysis request to EKG server')
+        except OperationFailedError as err:
+            logging.exception('Submitting analysis report to EKG failed')
+            return err, -1
+        else:
+            response_json: dict = EkgClient._get_response_json(response)
 
-        response_json: dict = EkgClient._get_response_json(response)
-
-        analysis_id: str = response_json.get('data', {}).get('id')
-        if not analysis_id or not analysis_id.isdigit():
-            raise OperationFailedError(f'Received an invalid JSON response from EKG server; response did not '
-                                       f'contain analysis ID:\n{response_json}')
-        return int(analysis_id)
+            analysis_id: str = response_json.get('data', {}).get('id')
+            if not analysis_id or not analysis_id.isdigit():
+                raise OperationFailedError(f'Received an invalid JSON response from EKG server; response did not '
+                                           f'contain analysis ID:\n{response_json}')
+            return None, int(analysis_id)
 
     @retry(tries=16, delay=60 * 1, backoff=1, predicate=lambda status: status in {ANALYSIS_PASS, ANALYSIS_FAIL})
     def _get_analysis_status(self, analysis_id, ssl_cafile):
