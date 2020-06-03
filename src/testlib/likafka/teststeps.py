@@ -149,21 +149,27 @@ class StartKafkaHost(ManipulateKafkaHost):
 class ValidateSourceAndDestinationTopicsMatch(TestStep):
     """Test step to compare source and destination Kafka topic lists"""
 
-    def __init__(self, source_topics_getter, destination_topics_getter):
+    def __init__(self, source_topics_getter, destination_topics_getter, include_all_topics=True):
         super().__init__()
         if not source_topics_getter or not destination_topics_getter:
             raise ValueError('Both source and destination listed topics getter must be provided')
 
         self.source_topics_getter = source_topics_getter
         self.destination_topics_getter = destination_topics_getter
+        self.include_all_topics = include_all_topics
 
     def run_test(self):
         source_topic_set = set(self.source_topics_getter())
         destination_topic_set = set(self.destination_topics_getter())
 
-        if not source_topic_set.issubset(destination_topic_set):
-            raise OperationFailedError(f'One or more source topics are not present in the destination: '
-                                       f'{", ".join(source_topic_set.difference(destination_topic_set))}')
+        if self.include_all_topics:
+            if not source_topic_set.issubset(destination_topic_set):
+                raise OperationFailedError(f'One or more source topics are not present in the destination: '
+                                           f'{", ".join(source_topic_set.difference(destination_topic_set))}')
+        else:
+            if not source_topic_set.intersection(destination_topic_set):
+                raise OperationFailedError(f'None of the source topics are present in the destination: '
+                                           f'{source_topic_set}')
 
 
 class ValidateTopicsDoNotExist(TestStep):
@@ -197,23 +203,21 @@ class ValidateTopicsDoNotExist(TestStep):
 class ValidateDestinationTopicsExist(TestStep):
     """Test step which validates that a list of topics get created on the destination Kafka cluster with retries"""
 
-    def __init__(self, topics_getter, ssl_certfile=DEFAULT_SSL_CERTFILE):
+    def __init__(self, topics, ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
-        if not topics_getter:
-            raise ValueError(f'Invalid topics getter: {topics_getter}')
+        if not topics:
+            raise ValueError(f'Invalid topic list: {topics}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
 
-        self.topics_getter = topics_getter
+        self.topics = set(topics)
         self.cluster = KafkaClusterChoice.DESTINATION.value
         self.ssl_certfile = ssl_certfile
         self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
-        self.topics = None
 
     def run_test(self):
-        self.topics = set(self.topics_getter())
         if not self.topics_exist():
-            raise OperationFailedError(f'Not all topics {self.topics} have not been created on the destination yet')
+            raise OperationFailedError(f'Not all topics have been created on the destination yet: {self.topics}')
 
     @retry(tries=10, delay=60, backoff=2)
     def topics_exist(self):
