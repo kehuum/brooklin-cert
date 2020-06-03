@@ -13,6 +13,8 @@ from testlib.lid import LidClient
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
 
+log = logging.getLogger(__name__)
+
 
 class TestStep(ABC):
     """Base class of all test steps
@@ -84,13 +86,13 @@ class RunPythonCommand(TestStep, ABC):
 
     def run_test(self):
         command = self.main_command
-        logging.info(f'Running Python command: {command}')
+        log.info(f'Running Python command: {command}')
         RunPythonCommand.run_command(command)
 
     def cleanup(self):
         command = self.cleanup_command
         if command:
-            logging.info(f'Running Python cleanup command: {command}')
+            log.info(f'Running Python cleanup command: {command}')
             RunPythonCommand.run_command(command)
 
     @property
@@ -118,7 +120,7 @@ class Sleep(TestStep):
         self._secs = secs
 
     def run_test(self):
-        logging.info(f'Sleeping for {self._secs} seconds')
+        log.info(f'Sleeping for {self._secs} seconds')
         time.sleep(self._secs)
 
     def __str__(self):

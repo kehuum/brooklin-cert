@@ -4,6 +4,8 @@ import requests
 
 from testlib.core.utils import send_request, retry
 
+log = logging.getLogger(__name__)
+
 
 class CruiseControlClient(object):
     """Class which performs Kafka cluster management using Kafka Cruise Control to do actions such as preferred
@@ -37,7 +39,7 @@ class CruiseControlClient(object):
         response = send_request(send_fn=lambda: requests.post(url=self.cc_endpoint, params=params, headers=headers),
                                 error_message=f'Failed to call PLE on cruise control endpoint {self.cc_endpoint}',
                                 allowed_status_codes=self.EXPECTED_RESPONSE_CODES)
-        logging.info(f'Response status: {response.status_code}, response received: {response.text}')
+        log.info(f'Response status: {response.status_code}, response received: {response.text}')
         is_final = CruiseControlClient.is_response_final(response)
         return is_final, response.headers.get(self.USER_TASK_ID_HEADER)
 
@@ -55,18 +57,18 @@ class CruiseControlClient(object):
             # as best as we can, then presume finality.
             cc_version = response.headers.get('Cruise-Control-Version')
             if cc_version is not None:
-                logging.warning(f'json=False received from cruise-control version ({cc_version}) '
-                                'that does not support 202 response codes. '
-                                'Please upgrade cruise-control to >=2.0.61, '
-                                'Returning a potentially non-final response.')
+                log.warning(f'json=False received from cruise-control version ({cc_version}) '
+                            'that does not support 202 response codes. '
+                            'Please upgrade cruise-control to >=2.0.61, '
+                            'Returning a potentially non-final response.')
             elif response.status_code == requests.codes.request_uri_too_large:
                 # No cc_version in the response headers
                 # cruise-control won't return version information if
                 # servlet receives too-large-URI request
                 pass
             else:
-                logging.warning('Unable to determine cruise-control version. '
-                                'Returning a potentially non-final response.')
+                log.warning('Unable to determine cruise-control version. '
+                            'Returning a potentially non-final response.')
             return True
 
     @staticmethod

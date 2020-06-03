@@ -17,6 +17,8 @@ from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, ListTop
     ProduceToSourceTopics, ConsumeFromDestinationTopics
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
+logging.getLogger('kafka').setLevel(logging.WARN)
+logging.getLogger('kazoo').setLevel(logging.WARN)
 
 
 class BasicTests(unittest.TestCase):

@@ -6,6 +6,8 @@ from agent.api import DEFAULT_ADDRESS, DEFAULT_PORT
 from agent.api.basic import BasicCommands
 from agent.utils import log_errors
 
+log = logging.getLogger(__name__)
+
 
 class XMLRPCServerBase(object):
     """This is the base agent that encapsulates the basic
@@ -32,7 +34,7 @@ class XMLRPCServerBase(object):
     def serve(self):
         server, address, port = self.__server, self.__address, self.__port
         class_name = self.__class__.__name__
-        logging.info(f"{class_name} listening on {address}:{port}")
+        log.info(f"{class_name} listening on {address}:{port}")
         server.server_bind()
         server.server_activate()
         server.serve_forever()

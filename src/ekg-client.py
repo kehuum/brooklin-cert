@@ -8,6 +8,9 @@ from testlib import ALT_SSL_CAFILE
 from testlib.ekg import EkgTarget, EkgClient, ANALYSIS_PASS, ANALYSIS_FAIL
 from testlib.core.utils import OperationFailedError
 
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+log = logging.getLogger()
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -50,7 +53,7 @@ def main():
     args = parse_args()
 
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
+        log.setLevel(logging.DEBUG)
 
     ekg_client = EkgClient()
     try:

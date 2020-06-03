@@ -8,6 +8,8 @@ from enum import Enum
 from testlib import DEFAULT_SSL_CAFILE, DEFAULT_SSL_CERTFILE
 from testlib.core.utils import retry, send_request, get_response_json as get_response_json_util, OperationFailedError
 
+log = logging.getLogger(__name__)
+
 FabricInfo = namedtuple('FabricInfo', ['fabric', 'environment'])
 
 
@@ -71,7 +73,7 @@ class LidClient(object):
         # LID server expects these custom Rest.li headers to be set
         request_headers = {'X-RestLi-Protocol-Version': '2.0.0', 'X-RestLi-Method': 'create'}
         request_body = LidClient._get_restart_request_body(request_id, product, fabric, product_tag, host_concurrency)
-        logging.info(f'Submitting restart request to LID server. Request ID: {request_id}')
+        log.info(f'Submitting restart request to LID server. Request ID: {request_id}')
         send_request(send_fn=lambda: requests.post(url=LidClient._lid_deployments_url(fabric), json=request_body,
                                                    headers=request_headers, verify=self.ssl_cafile,
                                                    cert=self.ssl_certfile),
@@ -82,7 +84,7 @@ class LidClient(object):
            predicate=lambda deployment_request: deployment_request.is_successful or deployment_request.is_failed)
     def _get_deployment_request(self, request_id, fabric):
         url = f'{LidClient._lid_deployments_url(fabric)}/{request_id}'
-        logging.info(f'Retrieving deployment request info for request ID: {request_id}')
+        log.info(f'Retrieving deployment request info for request ID: {request_id}')
         response = send_request(send_fn=lambda: requests.get(url, verify=self.ssl_cafile),
                                 error_message=f'Failed to get deployment request ID: {request_id}')
         json_dict: dict = LidClient._get_response_json(response)

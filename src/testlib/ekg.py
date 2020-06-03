@@ -9,6 +9,8 @@ from testlib.core.utils import send_request, retry, OperationFailedError, typena
     get_response_json as get_response_json_util
 from testlib.range import list_hosts
 
+log = logging.getLogger(__name__)
+
 ANALYSIS_PASS = 'PASS'
 ANALYSIS_FAIL = 'FAIL'
 
@@ -39,24 +41,24 @@ class EkgClient(object):
 
         if not control_target.hosts:
             fabric, tag = control_target.fabric, control_target.tag
-            logging.info(f'Retrieving control target hosts for fabric: {fabric} and tag: {tag}')
+            log.info(f'Retrieving control target hosts for fabric: {fabric} and tag: {tag}')
             control_target.hosts = EkgClient._get_hosts(fabric, tag)
-            logging.info(f'Retrieved {len(control_target.hosts)} control hosts')
+            log.info(f'Retrieved {len(control_target.hosts)} control hosts')
 
         if not exp_target.hosts:
             fabric, tag = exp_target.fabric, exp_target.tag
-            logging.info(f'Retrieving experiment target hosts for fabric: {fabric} and tag: {tag}')
+            log.info(f'Retrieving experiment target hosts for fabric: {fabric} and tag: {tag}')
             exp_target.hosts = EkgClient._get_hosts(fabric, tag)
-            logging.info(f'Retrieved {len(exp_target.hosts)} experiment hosts')
+            log.info(f'Retrieved {len(exp_target.hosts)} experiment hosts')
 
         request_body = EkgClient._get_request_body(product, app, control_target, exp_target, start_secs,
                                                    end_secs)
 
-        logging.info('Submitting analysis report request to EKG server')
+        log.info('Submitting analysis report request to EKG server')
         err, analysis_id = self._submit_analysis_request(request_body, ssl_cafile)
         if err is not None:
             raise err
-        logging.info(f'Analysis report submitted successfully. Analysis ID: {analysis_id}')
+        log.info(f'Analysis report submitted successfully. Analysis ID: {analysis_id}')
 
         return analysis_id, self._get_analysis_status(analysis_id, ssl_cafile)
 
@@ -67,7 +69,7 @@ class EkgClient(object):
                                                                   verify=ssl_cafile),
                                     error_message='Failed to submit analysis request to EKG server')
         except OperationFailedError as err:
-            logging.exception('Submitting analysis report to EKG failed')
+            log.exception('Submitting analysis report to EKG failed')
             return err, -1
         else:
             response_json: dict = EkgClient._get_response_json(response)
@@ -82,7 +84,7 @@ class EkgClient(object):
     def _get_analysis_status(self, analysis_id, ssl_cafile):
         url = f'{self.ANALYSIS_URL}/{analysis_id}'
 
-        logging.info(f'Retrieving analysis report ID: {analysis_id}')
+        log.info(f'Retrieving analysis report ID: {analysis_id}')
         response = send_request(send_fn=lambda: requests.get(url, verify=ssl_cafile),
                                 error_message=f'Failed to retrieve EKG analysis report with ID: {analysis_id}')
         response_json: dict = EkgClient._get_response_json(response)
@@ -140,4 +142,4 @@ class RunEkgAnalysis(TestStep):
         crt_url = f'https://crt.prod.linkedin.com/#/testing/ekg/analyses/{analysis_id}'
         if status != ANALYSIS_PASS:
             raise OperationFailedError(f'EKG analysis did not pass. CRT url: {crt_url}')
-        logging.info(f'EKG analysis passed. CRT url: {crt_url}')
+        log.info(f'EKG analysis passed. CRT url: {crt_url}')

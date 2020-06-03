@@ -2,11 +2,11 @@ import logging
 import os
 import signal
 
-from xmlrpc.server import SimpleXMLRPCServer
-
 from agent.api.kafka import KafkaCommands
 from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
 from agent.utils import is_process_running, get_pid_from_file, run_command
+
+log = logging.getLogger(__name__)
 
 
 class XMLRPCKafkaServerMixIn(KafkaCommands):
@@ -41,16 +41,16 @@ class XMLRPCKafkaServerMixIn(KafkaCommands):
         pid = get_pid_from_file('/export/content/lid/apps/kafka/i001/logs/kafka.pid')
 
         is_running, msg = is_process_running(pid)
-        logging.info(f'Kafka pid retrieval status: {msg}')
+        log.info(f'Kafka pid retrieval status: {msg}')
         if not is_running:
-            logging.error(f'Cannot kill Kafka: process {pid} not running')
+            log.error(f'Cannot kill Kafka: process {pid} not running')
             raise Exception(f'Kafka process {pid} is not running: {msg}')
 
-        logging.info(f'Killing Kafka with pid: {pid}')
+        log.info(f'Killing Kafka with pid: {pid}')
         try:
             os.kill(pid, signal.SIGKILL)
         except Exception as e:
-            logging.error(f'Error when trying to kill Kafka: {e}')
+            log.error(f'Error when trying to kill Kafka: {e}')
             raise
 
 

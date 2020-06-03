@@ -9,6 +9,9 @@ from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
 from agent.utils import is_process_running, get_pid_from_file, run_command
 
 
+log = logging.getLogger(__name__)
+
+
 class XMLRPCBrooklinServerMixIn(BrooklinCommands):
     """This is the mix-in the provides all the Brooklin XML RPC
     server functionality. It cannot be instantiated or used
@@ -44,11 +47,11 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         return bool(is_leader)
 
     def pause_brooklin(self):
-        logging.info("Trying to pause Brooklin")
+        log.info("Trying to pause Brooklin")
         self.send_signal(signal.SIGSTOP)
 
     def resume_brooklin(self):
-        logging.info("Trying to resume Brooklin")
+        log.info("Trying to resume Brooklin")
         self.send_signal(signal.SIGCONT)
 
     def start_brooklin(self):
@@ -64,10 +67,10 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         pid = XMLRPCBrooklinServerMixIn.get_pid()
 
         if skip_if_dead and not is_process_running(pid)[0]:
-            logging.info(f"Skipped killing Brooklin because PID {pid} is not running and skip_if_dead is True")
+            log.info(f"Skipped killing Brooklin because PID {pid} is not running and skip_if_dead is True")
             return False
 
-        logging.info("Trying to kill Brooklin")
+        log.info("Trying to kill Brooklin")
         self.send_signal(signal.SIGKILL)
         return True
 
@@ -80,16 +83,16 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         pid = XMLRPCBrooklinServerMixIn.get_pid()
 
         is_running, msg = is_process_running(pid)
-        logging.info(f'Brooklin pid retrieval status: {msg}')
+        log.info(f'Brooklin pid retrieval status: {msg}')
         if not is_running:
-            logging.error(f'Cannot send {sig} signal to Brooklin: process {pid} not running')
+            log.error(f'Cannot send {sig} signal to Brooklin: process {pid} not running')
             raise Exception(f'Brooklin process {pid} is not running: {msg}')
 
-        logging.info(f'Sending {sig} to Brooklin with pid: {pid}')
+        log.info(f'Sending {sig} to Brooklin with pid: {pid}')
         try:
             os.kill(pid, sig)
         except Exception as e:
-            logging.error(f'Error when trying to send {sig} to Brooklin: {e}')
+            log.error(f'Error when trying to send {sig} to Brooklin: {e}')
             raise
 
 

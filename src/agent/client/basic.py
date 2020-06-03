@@ -6,16 +6,19 @@ from xmlrpc.client import ServerProxy
 from agent.api import DEFAULT_PORT
 from agent.api.basic import BasicCommands
 
+log = logging.getLogger(__name__)
+
 
 class XMLRPCClientBase(AbstractContextManager):
     """This is the base class that provides the
     common functionality of all XML RPC clients."""
+
     def __init__(self, hostname, port=DEFAULT_PORT):
         self.__hostname = hostname
         self.__port = port
         url = f"http://{hostname}:{port}/"
         self.__proxy = ServerProxy(url)
-        logging.debug(f"Client configured to connect to {url}")
+        log.debug(f"Client configured to connect to {url}")
 
     def __enter__(self):
         self.__proxy.__enter__()

@@ -9,7 +9,8 @@ import os
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.likafka.admin import AdminClient
 
-logging.basicConfig(level=logging.WARN, format='[%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logging.getLogger('kafka').setLevel(logging.WARN)
 log = logging.getLogger()
 
 CREATE_TOPIC_COMMAND = 'create_topic'

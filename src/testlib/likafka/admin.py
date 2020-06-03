@@ -4,6 +4,8 @@ from kafka import KafkaAdminClient
 from kafka.admin import NewTopic
 from testlib import DEFAULT_SSL_CAFILE
 
+log = logging.getLogger(__name__)
+
 
 class AdminClient(object):
     def __init__(self, bootstrap_servers, cert_file):
@@ -12,7 +14,7 @@ class AdminClient(object):
 
     @staticmethod
     def create_admin_client(bootstrap_servers, ssl_certfile):
-        logging.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, '
+        log.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, '
                       f'cert file: {ssl_certfile}')
         return KafkaAdminClient(bootstrap_servers=bootstrap_servers,
                                 security_protocol='SSL',
@@ -28,17 +30,17 @@ class AdminClient(object):
                 key_value = config.split(':')
                 config_dict[key_value[0]] = key_value[1]
 
-        logging.info(f'Creating topic: {name} with partitions: {partitions}, replication factor:'
+        log.info(f'Creating topic: {name} with partitions: {partitions}, replication factor:'
                      f' {replication_factor}, and topic configs: {config_dict}')
         self.admin_client.create_topics([NewTopic(name=name, num_partitions=partitions,
                                                   replication_factor=replication_factor, topic_configs=config_dict)])
 
     def delete_topic(self, name):
-        logging.info(f'Deleting topic: {name}')
+        log.info(f'Deleting topic: {name}')
         self.admin_client.delete_topics([name])
 
     def list_topics(self):
-        logging.info(f'Listing topics for bootstrap_servers: {self.bootstrap_servers}')
+        log.info(f'Listing topics for bootstrap_servers: {self.bootstrap_servers}')
         topics = self.admin_client.list_topics()
-        logging.debug(f'Topics in {self.bootstrap_servers}: {topics}')
+        log.debug(f'Topics in {self.bootstrap_servers}: {topics}')
         return topics

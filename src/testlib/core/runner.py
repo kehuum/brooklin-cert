@@ -13,6 +13,8 @@ from testlib.core.teststeps import TestStep, NukeZooKeeper, ParallelTestStepGrou
 
 TestStepOrParallelTestStepGroup = Union[TestStep, ParallelTestStepGroup]
 
+log = logging.getLogger(__name__)
+
 
 class TestRunnerBuilder(object):
     """A builder for TestRunner objects"""
@@ -54,9 +56,9 @@ class TestRunner(object):
         self._steps = steps
 
     def run(self):
-        logging.info(f"Started running test: {self._test_name}")
+        log.info(f"Started running test: {self._test_name}")
         success = self._run_steps(self._steps)
-        logging.info(f"Finished running test: {self._test_name}, status: {'PASS' if success else 'FAIL'}")
+        log.info(f"Finished running test: {self._test_name}, status: {'PASS' if success else 'FAIL'}")
         return success
 
     def _run_steps(self, steps: Iterable[TestStepOrParallelTestStepGroup]):
@@ -67,19 +69,19 @@ class TestRunner(object):
             step_name = f'{self._test_name}:{s}'
             cleanup_steps.append(s)
 
-            logging.info(f'Running test step {step_name}')
+            log.info(f'Running test step {step_name}')
             success, message = self._execute(s)
             if not success:
-                logging.error(f'Test step {step_name} failed with an error: {message}')
+                log.error(f'Test step {step_name} failed with an error: {message}')
                 test_success = False
                 break
 
         for c in reversed(cleanup_steps):
             step_name = f'{self._test_name}:{c}'
-            logging.info(f'Running cleanup test step {step_name}')
+            log.info(f'Running cleanup test step {step_name}')
             success, message = self._cleanup(c)
             if not success:
-                logging.error(f'Cleanup test step {step_name} failed with an error: {message}')
+                log.error(f'Cleanup test step {step_name} failed with an error: {message}')
                 test_success = False
 
         return test_success

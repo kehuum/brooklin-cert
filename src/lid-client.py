@@ -7,6 +7,7 @@ from testlib.core.utils import OperationFailedError
 from testlib.lid import LidClient
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+log = logging.getLogger()
 
 
 def percentage(s: str):
@@ -45,10 +46,10 @@ def main():
         lid_client.restart(product=args.product, fabric=args.fabric, product_tag=args.product_tag,
                            host_concurrency=args.host_concurrency)
     except OperationFailedError as err:
-        logging.error(f'Restarting product failed with error: {err.message}')
+        log.error(f'Restarting product failed with error: {err.message}')
         sys.exit(1)
     else:
-        logging.info(f'Restarting product succeeded. Product: {args.product}, fabric: {args.fabric}, '
+        log.info(f'Restarting product succeeded. Product: {args.product}, fabric: {args.fabric}, '
                      f'product-tag: {args.product_tag}, host-concurrency: {args.host_concurrency}%')
 
 

@@ -5,6 +5,8 @@ import subprocess
 
 from functools import wraps
 
+log = logging.getLogger(__name__)
+
 
 def get_pid_from_file(pid_file_name):
     with open(pid_file_name) as pid_file:
@@ -42,7 +44,7 @@ def log_errors(fn):
                 if e.stderr:
                     error_message += f'stderr:\n{e.stderr.decode("utf-8").strip()}\n'
 
-            logging.error(error_message)
+            log.error(error_message)
             raise
     return decorated_fn
 
