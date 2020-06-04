@@ -39,7 +39,7 @@ def csv(tokens):
                                      'only alphanumeric characters, digits, dashes, dots, and underscores are allowed')
 
 
-def retry(tries, delay=3, backoff=2, predicate: Callable[[Any], bool] = lambda x: x):
+def retry(tries, delay=3, backoff=1, predicate: Callable[[Any], bool] = lambda x: x):
     """Retries a function or method until predicate returns a truthful value.
     In all cases, the resulting function returns the return value of the decorated function
     and propagates the exceptions it raises.

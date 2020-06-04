@@ -24,8 +24,7 @@ class CruiseControlClient(object):
     def perform_preferred_leader_election(self):
         is_final, user_task_id = self.get_ple_result()
         if not is_final:
-            retry_get_ple_result = retry(tries=12, delay=60, backoff=1,
-                                         predicate=lambda result: result[0])(self.get_ple_result)
+            retry_get_ple_result = retry(tries=12, delay=60, predicate=lambda result: result[0])(self.get_ple_result)
             is_final, _ = retry_get_ple_result(headers={self.USER_TASK_ID_HEADER: user_task_id})
         return is_final
 

@@ -213,13 +213,14 @@ class ValidateDestinationTopicsExist(TestStep):
         self.topics = set(topics)
         self.cluster = KafkaClusterChoice.DESTINATION.value
         self.ssl_certfile = ssl_certfile
-        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
+        self.client = None
 
     def run_test(self):
+        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
         if not self.topics_exist():
             raise OperationFailedError(f'Not all topics have been created on the destination yet: {self.topics}')
 
-    @retry(tries=12, delay=60, backoff=1)
+    @retry(tries=12, delay=60)
     def topics_exist(self):
         all_topics = set(self.client.list_topics())
         return self.topics.issubset(all_topics)
