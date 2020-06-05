@@ -6,6 +6,7 @@ from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, 
     StopLeaderBrooklinHost, PauseLeaderBrooklinHost
 from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
+from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.teststeps import RunKafkaAudit
 
@@ -37,10 +38,10 @@ def apply_revert_brooklin_host(
 
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_revert.end_time,
-                                 topics_file='data/voyager-topics.txt'),
+                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                  endtime_getter=sleep_after_revert.end_time,
-                                 topics_file='data/experiment-voyager-topics.txt'))
+                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \
@@ -88,10 +89,10 @@ def restart_brooklin_cluster(datastream_name, host_concurrency) -> TestRunner:
 
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file='data/voyager-topics.txt'),
+                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                  endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file='data/experiment-voyager-topics.txt'))
+                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \

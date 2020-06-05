@@ -4,6 +4,7 @@ from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.teststeps import CreateDatastream
 from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
+from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKafkaAudit, StopRandomKafkaHost, \
@@ -30,10 +31,10 @@ def apply_revert_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice
 
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_revert.end_time,
-                                 topics_file='data/voyager-topics.txt'),
+                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                  endtime_getter=sleep_after_revert.end_time,
-                                 topics_file='data/experiment-voyager-topics.txt'))
+                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \
@@ -72,10 +73,10 @@ def perform_kafka_ple(datastream_name, kafka_cluster: KafkaClusterChoice) -> Tes
 
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_ple.end_time,
-                                 topics_file='data/voyager-topics.txt'),
+                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                  endtime_getter=sleep_after_ple.end_time,
-                                 topics_file='data/experiment-voyager-topics.txt'))
+                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \
@@ -102,10 +103,10 @@ def restart_kafka_cluster(datastream_name, kafka_cluster: KafkaClusterChoice, ho
 
     kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                  endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file='data/voyager-topics.txt'),
+                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                    RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                  endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file='data/experiment-voyager-topics.txt'))
+                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
     return TestRunnerBuilder(test_name=datastream_name) \
         .add_parallel(*create_datastream) \

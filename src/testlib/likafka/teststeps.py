@@ -12,6 +12,7 @@ from kafka import KafkaProducer, KafkaConsumer, TopicPartition
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.core.teststeps import RunPythonCommand, TestStep, Sleep
 from testlib.core.utils import OperationFailedError, retry, typename
+from testlib.data import KafkaTopicFileChoice
 from testlib.likafka.admin import AdminClient
 from testlib.likafka.cruisecontrol import CruiseControlClient
 from testlib.likafka.environment import KafkaClusterChoice
@@ -21,27 +22,27 @@ from testlib.range import get_random_host
 class RunKafkaAudit(RunPythonCommand):
     """Test step for running Kafka audit"""
 
-    def __init__(self, starttime_getter, endtime_getter, topics_file):
+    def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice):
         super().__init__()
-        if not topics_file:
-            raise ValueError(f'Invalid topics file: {topics_file}')
+        if not topics_file_choice:
+            raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
 
         if not starttime_getter or not endtime_getter:
             raise ValueError('At least one of time getter is invalid')
 
-        self.topics_file = topics_file
+        self.topics_file_choice = topics_file_choice
         self.starttime_getter = starttime_getter
         self.endtime_getter = endtime_getter
 
     @property
     def main_command(self):
         return 'kafka-audit-v2.py ' \
-               f'--topicsfile {self.topics_file} ' \
+               f'--topicsfile {self.topics_file_choice.value} ' \
                f'--startms {self.starttime_getter() * 1000} ' \
                f'--endms {self.endtime_getter() * 1000}'
 
     def __str__(self):
-        return f'{typename(self)}(topics_file: {self.topics_file})'
+        return f'{typename(self)}(topics_file_choice: {self.topics_file_choice})'
 
 
 class ManipulateKafkaHost(TestStep):

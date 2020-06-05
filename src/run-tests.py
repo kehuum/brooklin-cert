@@ -9,6 +9,7 @@ from testlib.brooklin.testhelpers import kill_start_brooklin_host, stop_start_br
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
 from testlib.core.runner import TestRunnerBuilder
 from testlib.core.teststeps import Sleep
+from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
     restart_kafka_cluster
@@ -35,9 +36,9 @@ class BasicTests(unittest.TestCase):
         run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
 
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time,
-                                     topics_file='data/voyager-topics.txt'),
+                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        RunKafkaAudit(starttime_getter=create_datastream[1].end_time, endtime_getter=sleep.end_time,
-                                     topics_file='data/experiment-voyager-topics.txt'))
+                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder('test_basic') \
             .add_parallel(*create_datastream) \
@@ -66,10 +67,10 @@ class BasicTests(unittest.TestCase):
 
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                      endtime_getter=sleep_after_restart.end_time,
-                                     topics_file='data/voyager-topics.txt'),
+                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                      endtime_getter=sleep_after_restart.end_time,
-                                     topics_file='data/experiment-voyager-topics.txt'))
+                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
@@ -116,26 +117,26 @@ class BasicTests(unittest.TestCase):
                 destination_topics_getter=list_topics_destination_after_update[0].get_topics,
                 include_all_topics=create_datastream[0].topic_create),
              ValidateSourceAndDestinationTopicsMatch(
-                source_topics_getter=list_topics_source[1].get_topics,
-                destination_topics_getter=list_topics_destination_after_update[1].get_topics,
-                include_all_topics=create_datastream[1].topic_create))
+                 source_topics_getter=list_topics_source[1].get_topics,
+                 destination_topics_getter=list_topics_destination_after_update[1].get_topics,
+                 include_all_topics=create_datastream[1].topic_create))
 
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                       endtime_getter=sleep_after_update.end_time)
 
         kafka_audit_basic = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                            endtime_getter=sleep_after_update.end_time,
-                                           topics_file='data/voyager-topics.txt'),
+                                           topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                              RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                            endtime_getter=sleep_after_update.end_time,
-                                           topics_file='data/experiment-voyager-topics.txt'))
+                                           topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         kafka_audit_new_topics = (RunKafkaAudit(starttime_getter=update_datastream[0].end_time,
                                                 endtime_getter=sleep_after_update.end_time,
-                                                topics_file='data/voyager-seas-topics.txt'),
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER_SEAS),
                                   RunKafkaAudit(starttime_getter=update_datastream[1].end_time,
                                                 endtime_getter=sleep_after_update.end_time,
-                                                topics_file='data/experiment-voyager-seas-topics.txt'))
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER_SEAS))
 
         runner = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*list_topics_source) \
@@ -200,10 +201,10 @@ class BasicTests(unittest.TestCase):
 
         kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
                                      endtime_getter=sleep_after_producing_traffic.end_time,
-                                     topics_file='data/voyager-topics.txt'),
+                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
                                      endtime_getter=sleep_after_producing_traffic.end_time,
-                                     topics_file='data/experiment-voyager-topics.txt'))
+                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
