@@ -11,6 +11,7 @@ from testlib.core.runner import TestRunnerBuilder
 from testlib.core.teststeps import Sleep
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
+from testlib.likafka.audit import KafkaAuditInquiryStore
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
     restart_kafka_cluster
 from testlib.likafka.teststeps import RunKafkaAudit, KafkaClusterChoice, ListTopics, \
@@ -22,7 +23,24 @@ logging.getLogger('kafka').setLevel(logging.WARN)
 logging.getLogger('kazoo').setLevel(logging.WARN)
 
 
-class BasicTests(unittest.TestCase):
+class KafkaAuditTestCase(unittest.TestCase):
+    """Base class of any unittest.TestCase that wishes to run Kafka audit inquiries"""
+
+    def setUp(self):
+        # Make sure to clear any old Kafka audit inquiries
+        # added by past executions of this test so they
+        # don't get used in the Kafka audit tests executed
+        # after this test is complete
+        audit_inquiry_store = KafkaAuditInquiryStore()
+        audit_inquiry_store.remove_inquiry(self.test_name)
+
+    @property
+    def test_name(self):
+        """Returns the name of the test without the module name (e.g. BasicTests.test_basic)"""
+        return self.id().split('.', maxsplit=1)[1]
+
+
+class BasicTests(KafkaAuditTestCase):
     """All basic certification tests"""
 
     def test_basic(self):
@@ -233,7 +251,7 @@ class BasicTests(unittest.TestCase):
         self.assertTrue(runner.run())
 
 
-class BrooklinClusterBounceTests(unittest.TestCase):
+class BrooklinClusterBounceTests(KafkaAuditTestCase):
     """All tests involving cluster restarts that use LID"""
 
     def test_brooklin_cluster_parallel_bounce(self):
@@ -245,7 +263,7 @@ class BrooklinClusterBounceTests(unittest.TestCase):
                         .run())
 
 
-class BrooklinErrorInducingTests(unittest.TestCase):
+class BrooklinErrorInducingTests(KafkaAuditTestCase):
     """All Brooklin error-inducing certification tests"""
 
     def test_kill_random_brooklin_host(self):
@@ -275,7 +293,7 @@ class BrooklinErrorInducingTests(unittest.TestCase):
                         .run())
 
 
-class KafkaErrorInducingTests(unittest.TestCase):
+class KafkaErrorInducingTests(KafkaAuditTestCase):
     """All Kafka error-inducing certification tests"""
 
     def test_kill_random_source_kafka_broker(self):

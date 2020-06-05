@@ -1,8 +1,7 @@
 import json
 
-from collections import namedtuple
 from enum import Enum
-
+from typing import NamedTuple
 from testlib.brooklin.environment import BrooklinClusterChoice
 
 
@@ -43,8 +42,10 @@ class Datastream(object):
         return conn_str[conn_str.rfind('/') + 1:]
 
 
-DatastreamCreationInfo = namedtuple('DatastreamCreationInfo', ['cluster', 'num_tasks', 'topic_create', 'identity',
-                                                               'passthrough', 'partition_managed', 'whitelist'])
+DatastreamCreationInfo = NamedTuple('DatastreamCreationInfo',
+                                    [('cluster', BrooklinClusterChoice), ('num_tasks', int), ('topic_create', bool),
+                                     ('identity', bool), ('passthrough', bool), ('partition_managed', bool),
+                                     ('whitelist', str)])
 
 
 class DatastreamConfigChoice(Enum):

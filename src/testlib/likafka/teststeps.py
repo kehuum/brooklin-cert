@@ -14,6 +14,7 @@ from testlib.core.teststeps import RunPythonCommand, TestStep, Sleep
 from testlib.core.utils import OperationFailedError, retry, typename
 from testlib.data import KafkaTopicFileChoice
 from testlib.likafka.admin import AdminClient
+from testlib.likafka.audit import KafkaAuditInquiryStore, KafkaAuditInquiry
 from testlib.likafka.cruisecontrol import CruiseControlClient
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
@@ -28,7 +29,7 @@ class RunKafkaAudit(RunPythonCommand):
             raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
 
         if not starttime_getter or not endtime_getter:
-            raise ValueError('At least one of time getter is invalid')
+            raise ValueError('At least one of the two time getters is invalid')
 
         self.topics_file_choice = topics_file_choice
         self.starttime_getter = starttime_getter
@@ -43,6 +44,30 @@ class RunKafkaAudit(RunPythonCommand):
 
     def __str__(self):
         return f'{typename(self)}(topics_file_choice: {self.topics_file_choice})'
+
+
+class AddKafkaAuditInquiry(TestStep):
+    """Writes Kafka audit inquiry info that can be used by Kafka audit tests to persistent storage"""
+
+    def __init__(self, test_name, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice):
+        super().__init__()
+        if not test_name:
+            raise ValueError(f'Invalid test name: {test_name}')
+        if not starttime_getter or not endtime_getter:
+            raise ValueError('At least one of the two time getters is invalid')
+        if not topics_file_choice:
+            raise ValueError(f'Invalid topics_file_choice: {topics_file_choice}')
+
+        self.test_name = test_name
+        self.starttime_getter = starttime_getter
+        self.endtime_getter = endtime_getter
+        self.topics_file_choice = topics_file_choice
+
+    def run_test(self):
+        store = KafkaAuditInquiryStore()
+        store.add_inquiry(key=self.test_name, inquiry=KafkaAuditInquiry(startms=self.starttime_getter(),
+                                                                        endms=self.endtime_getter(),
+                                                                        topics_file_choice=self.topics_file_choice))
 
 
 class ManipulateKafkaHost(TestStep):

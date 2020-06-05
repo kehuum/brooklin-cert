@@ -1,9 +1,10 @@
-from collections import namedtuple
 from enum import Enum
+from typing import NamedTuple
 
 KAFKA_PRODUCT_NAME = 'kafka-server'
 
-KafkaDeploymentInfo = namedtuple('KafkaDeploymentInfo', ['fabric', 'tag', 'bootstrap_servers', 'cc_endpoint'])
+KafkaDeploymentInfo = NamedTuple('KafkaDeploymentInfo',
+                                 [('fabric', str), ('tag', str), ('bootstrap_servers', str), ('cc_endpoint', str)])
 
 
 class KafkaClusterChoice(Enum):

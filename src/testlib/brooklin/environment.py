@@ -1,10 +1,11 @@
-from collections import namedtuple
 from enum import Enum
+from typing import NamedTuple
 
 BROOKLIN_PRODUCT_NAME = 'brooklin-server'
 BROOKLIN_SERVICE_NAME = 'brooklin-service'
 
-BrooklinDeploymentInfo = namedtuple('BrooklinDeploymentInfo', ['fabric', 'tag', 'zk_dns', 'zk_root_znode'])
+BrooklinDeploymentInfo = NamedTuple('BrooklinDeploymentInfo',
+                                    [('fabric', str), ('tag', str), ('zk_dns', str), ('zk_root_znode', str)])
 
 
 class BrooklinClusterChoice(Enum):

@@ -3,14 +3,14 @@ import logging
 import uuid
 import requests
 
-from collections import namedtuple
 from enum import Enum
+from typing import NamedTuple
 from testlib import DEFAULT_SSL_CAFILE, DEFAULT_SSL_CERTFILE
 from testlib.core.utils import retry, send_request, get_response_json as get_response_json_util, OperationFailedError
 
 log = logging.getLogger(__name__)
 
-FabricInfo = namedtuple('FabricInfo', ['fabric', 'environment'])
+FabricInfo = NamedTuple('FabricInfo', [('fabric', str), ('environment', str)])
 
 
 class FabricChoice(Enum):
