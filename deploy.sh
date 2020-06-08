@@ -9,6 +9,7 @@ KAFKA_DEST_OPTION="--dest"
 TEST_DRIVER_OPTION="--driver"
 TEST_DRIVER_HOST_OPTION="--td"
 CLEAN_OPTION="--clean"
+CONFIG_ONLY_OPTION="--config-only"
 VERBOSE_OPTION="-v"
 
 BROOKLIN_CONTROL_TAG="brooklin.cert.control"
@@ -23,16 +24,19 @@ INCLUDE_BROOKLIN_EXP=0
 INCLUDE_KAFKA_ALL=0
 INCLUDE_KAFKA_SRC=0
 INCLUDE_KAFKA_DEST=0
+INCLUDE_CONFIG_ONLY=0
 PROMPT_FOR_2FA=1
 CLEAN=0
 VERBOSE=0
 
 CA_BUNDLE_FILE="/etc/riddler/ca-bundle.crt"
+APPLICATION_CFG_FILE="application.cfg"
 DEPENDENCIES_DIR=dependencies
 DEPENDENCIES_TARBALL="$DEPENDENCIES_DIR.tar.gz"
 DIST_DIR=dist
 GEN_CERT_SCRIPT="gen-cert.sh"
 INSTALL_AGENT_SCRIPT="install-agent.sh"
+INSTALL_CONFIG_SCRIPT="install-config.sh"
 INSTALL_DRIVER_SCRIPT="install-driver.sh"
 SCRIPT_NAME=$(basename "$0")
 SOURCES_DIR=src
@@ -47,11 +51,12 @@ function usage {
     echo "  $TEST_DRIVER_HOST_OPTION hostname   Include test scripts on the specified hostname"
     echo "  $BROOKLIN_CONTROL_OPTION          Include test agent on $BROOKLIN_CONTROL_TAG cluster"
     echo "  $BROOKLIN_EXP_OPTION           Include test agent on $BROOKLIN_EXP_TAG cluster"
-    echo "  $BROOKLIN_ALL_OPTION      Same as specifying both  $BROOKLIN_CONTROL_OPTION and $BROOKLIN_EXP_OPTION"
+    echo "  $BROOKLIN_ALL_OPTION      Same as specifying both $BROOKLIN_CONTROL_OPTION and $BROOKLIN_EXP_OPTION"
     echo "  $KAFKA_SRC_OPTION           Include test agent on $KAFKA_SRC_TAG cluster"
     echo "  $KAFKA_DEST_OPTION          Include test agent on $KAFKA_DEST_TAG cluster"
-    echo "  $KAFKA_ALL_OPTION         Same as specifying both  $KAFKA_SRC_OPTION and $KAFKA_DEST_OPTION"
+    echo "  $KAFKA_ALL_OPTION         Same as specifying both $KAFKA_SRC_OPTION and $KAFKA_DEST_OPTION"
     echo "  $CLEAN_OPTION         Remove files on all included host and clusters"
+    echo "  $CONFIG_ONLY_OPTION   Include $APPLICATION_CFG_FILE file and install script on $BROOKLIN_CONTROL_TAG or $BROOKLIN_EXP_TAG"
     echo "  $VERBOSE_OPTION              Turn on verbose logging"
     echo "  -h              Display help"
     exit "$1"
@@ -63,6 +68,22 @@ function validate_arguments() {
     sum=$((INCLUDE_BROOKLIN_CONTROL+INCLUDE_BROOKLIN_EXP))
     if [[ $sum == 1 ]]; then
       >&2 echo "Cannot specify $BROOKLIN_ALL_OPTION and one of"\
+      "$BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION"
+      usage 1
+    fi
+
+    if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION and $BROOKLIN_ALL_OPTION."\
+      "Must specify either $BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION with $CONFIG_ONLY_OPTION"
+      usage 1
+    fi
+  fi
+
+  # Validate Brooklin config options
+  if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+    sum=$((INCLUDE_BROOKLIN_CONTROL+INCLUDE_BROOKLIN_EXP))
+    if [[ $sum != 1 ]]; then
+      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION and none or both of"\
       "$BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION"
       usage 1
     fi
@@ -115,6 +136,19 @@ function cleanup_cluster() {
   redirect_output mssh -r "$1" "./$INSTALL_AGENT_SCRIPT --clean $2"
 }
 
+function copy_configs_to_cluster() {
+  echo "Copying configs to $1 ..."
+  hosts=$(eh -e "$1")
+  while read -r h; do
+    redirect_output scp "../$INSTALL_CONFIG_SCRIPT" "../$APPLICATION_CFG_FILE" "$USER"@"$h":~/
+  done <<< "$hosts"
+}
+
+function cleanup_cluster_config() {
+  echo "Cleaning up config $1 ..."
+  redirect_output mssh -r "$1" "./$INSTALL_CONFIG_SCRIPT --clean"
+}
+
 if [[ $# -eq 0 ]]; then
   usage 2
 fi
@@ -160,6 +194,10 @@ case $key in
     ;;
     $CLEAN_OPTION)
     CLEAN=1
+    shift # past argument
+    ;;
+    $CONFIG_ONLY_OPTION)
+    INCLUDE_CONFIG_ONLY=1
     shift # past argument
     ;;
     -v)
@@ -225,12 +263,20 @@ if [[ $CLEAN == 0 ]]; then
 
   # Brooklin control
   if [[ $INCLUDE_BROOKLIN_CONTROL == 1 ]]; then
-    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+    if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+      copy_configs_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG"
+    else
+      copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+    fi
   fi
 
   # Brooklin experiment
   if [[ $INCLUDE_BROOKLIN_EXP == 1 ]]; then
-    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+    if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+      copy_configs_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG"
+    else
+      copy_scripts_to_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+    fi
   fi
 
   # Kafka source
@@ -259,12 +305,20 @@ else # $CLEAN == 1
 
   # Brooklin control
   if [[ $INCLUDE_BROOKLIN_CONTROL == 1 ]]; then
-    cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+    if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+      cleanup_cluster_config "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG"
+    else
+      cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_CONTROL_TAG" $BROOKLIN_ALL_OPTION
+    fi
   fi
 
   # Brooklin experiment
   if [[ $INCLUDE_BROOKLIN_EXP == 1 ]]; then
-    cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+    if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
+      cleanup_cluster_config "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG"
+    else
+      cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
+    fi
   fi
 
   # Kafka source
