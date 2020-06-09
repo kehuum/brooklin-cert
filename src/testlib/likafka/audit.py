@@ -1,6 +1,10 @@
 import json
 
 from typing import NamedTuple, List, Optional
+from unittest import TestCase
+from testlib.core.runner import TestRunner, TestRunnerBuilder
+from testlib.core.teststeps import RunPythonCommand, TestStep
+from testlib.core.utils import typename
 from testlib.data import KafkaTopicFileChoice
 
 KafkaAuditInquiry = NamedTuple('KafkaAuditInquiry',
@@ -104,7 +108,7 @@ class KafkaAuditInquiryStore(object):
         inquiries.add(key, inquiry)
         self._write_data(inquiries)
 
-    def remove_inquiry(self, key):
+    def remove_inquiries(self, key):
         inquiries = self._read_data()
         if inquiries.remove(key) is not None:
             self._write_data(inquiries)
@@ -127,3 +131,140 @@ class KafkaAuditInquiryStore(object):
     def _write_data(self, inquiries: KafkaAuditInquiryCollection):
         with open(self._filename, 'w') as f:
             f.write(inquiries.to_json())
+
+
+class RunKafkaAudit(RunPythonCommand):
+    """Test step for running Kafka audit"""
+
+    def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice):
+        super().__init__()
+        if not topics_file_choice:
+            raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
+
+        if not starttime_getter or not endtime_getter:
+            raise ValueError('At least one of the two time getters is invalid')
+
+        self.topics_file_choice = topics_file_choice
+        self.starttime_getter = starttime_getter
+        self.endtime_getter = endtime_getter
+
+    @property
+    def main_command(self):
+        return 'kafka-audit-v2.py ' \
+               f'--topicsfile {self.topics_file_choice.value} ' \
+               f'--startms {self.starttime_getter() * 1000} ' \
+               f'--endms {self.endtime_getter() * 1000}'
+
+    def __str__(self):
+        return f'{typename(self)}(topics_file_choice: {self.topics_file_choice})'
+
+
+class AddDeferredKafkaAuditInquiry(TestStep):
+    """Writes Kafka audit inquiry info that can be used by Kafka audit tests to persistent storage"""
+
+    def __init__(self, test_name, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice):
+        super().__init__()
+        if not test_name:
+            raise ValueError(f'Invalid test name: {test_name}')
+        if not starttime_getter or not endtime_getter:
+            raise ValueError('At least one of the two time getters is invalid')
+        if not topics_file_choice:
+            raise ValueError(f'Invalid topics_file_choice: {topics_file_choice}')
+
+        self.test_name = test_name
+        self.starttime_getter = starttime_getter
+        self.endtime_getter = endtime_getter
+        self.topics_file_choice = topics_file_choice
+
+    def run_test(self):
+        store = KafkaAuditInquiryStore()
+        store.add_inquiry(key=self.test_name, inquiry=KafkaAuditInquiry(startms=self.starttime_getter(),
+                                                                        endms=self.endtime_getter(),
+                                                                        topics_file_choice=self.topics_file_choice))
+
+
+class KafkaAuditTestCaseBase(TestCase):
+    """Base class of any TestCase that wishes to run deferred Kafka audit inquiries
+
+    Extenders of this class are BMM test cases that wish to perform deferred data
+    completeness checks by querying Kafka audit. These checks are deferred in the
+    sense that they are performed after the test case that requested them passes
+    and all other tests execute. Deferring these audit checks is desirable primarily
+    because the service behind Kafka audit produces more reliable results when given
+    more time to finish counting events.
+
+    Extenders are expected to be using a TestRunner to execute their testing logic,
+    and are allowed to request deferred audit checks by running the
+    AddDeferredKafkaAuditInquiry test step as many times as desired to capture all
+    the parameters of their Kafka audit checks.
+
+    Extenders are required to use doRunTest() defined on this class to run their
+    tests or else all requested Kafka audit checks will not be executed. This is
+    necessary so this class can guarantee that audit checks are only executed if
+    the tests that requested them actually passed."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._audit_inquiry_store = KafkaAuditInquiryStore()
+        self._success = False
+
+    def setUp(self):
+        # Make sure to clear any old Kafka audit inquiries
+        # added by past executions of this test so they
+        # don't get used in the Kafka audit tests executed
+        # after this test is complete
+        self._remove_audit_inquiries()
+
+    def tearDown(self):
+        if not self._success:
+            # We don't want to query Kafka audit if the test fails
+            self._remove_audit_inquiries()
+
+    def doRunTest(self, runner: TestRunner):
+        self._success = runner.run()
+        self.assertTrue(self._success, "Running test failed")
+
+    @property
+    def test_name(self):
+        """Returns the name of the test without the module name (e.g. BasicTests.test_basic)"""
+        return self.id().split('.', maxsplit=1)[1]
+
+    def _remove_audit_inquiries(self):
+        self._audit_inquiry_store.remove_inquiries(self.test_name)
+
+
+class KafkaAuditInquiryTest(TestCase):
+    """A testcase for hitting Kafka audit to perform a data completeness check
+
+    This test case is not intended to be used directly. It is used by the
+    CustomTestLoader to schedule deferred Kafka audit tests."""
+
+    def __init__(self, inquiry_key: str):
+        self._inquiry_key = inquiry_key
+        # Create an attribute whose name = inquiry_key and
+        # set it to run_test so that method is executed when
+        # the test case is run. This will cause the test case
+        # to show up with that name in the final test report
+        # so we have a way to know which audit tests passed,
+        # failed, were skipped ... etc.
+        setattr(self, inquiry_key, self.run_test)
+        super().__init__(methodName=inquiry_key)
+
+    def run_test(self):
+        audit_inquiry_store = KafkaAuditInquiryStore()
+        inquiries = audit_inquiry_store.get_inquiries(self._inquiry_key)
+        if inquiries is None:
+            self.skipTest(f'No Kafka audit inquiry info found for {self._inquiry_key}')
+
+        for i, inquiry in enumerate(inquiries):
+            with self.subTest(audit_inquiry_number=i + 1, topics_file_choice=inquiry.topics_file_choice):
+                self._run_audit(inquiry)
+
+    def _run_audit(self, inquiry):
+        runner = TestRunnerBuilder(self.id()) \
+            .skip_pretest_steps() \
+            .add_sequential(RunKafkaAudit(starttime_getter=lambda: inquiry.startms,
+                                          endtime_getter=lambda: inquiry.endms,
+                                          topics_file_choice=inquiry.topics_file_choice)) \
+            .build()
+        self.assertTrue(runner.run(), "Kafka audit test failed")

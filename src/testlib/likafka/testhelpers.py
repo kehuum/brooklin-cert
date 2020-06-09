@@ -6,8 +6,9 @@ from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
+from testlib.likafka.audit import RunKafkaAudit
 from testlib.likafka.environment import KafkaClusterChoice
-from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, RunKafkaAudit, StopRandomKafkaHost, \
+from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, StopRandomKafkaHost, \
     PerformKafkaPreferredLeaderElection
 
 

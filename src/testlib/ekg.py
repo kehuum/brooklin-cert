@@ -1,7 +1,6 @@
 import logging
 import requests
 
-from typing import Tuple, Union
 from testlib import ALT_SSL_CAFILE
 from testlib.brooklin.environment import BROOKLIN_PRODUCT_NAME, BROOKLIN_SERVICE_NAME, BrooklinClusterChoice
 from testlib.core.teststeps import TestStep

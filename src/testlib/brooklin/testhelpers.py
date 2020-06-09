@@ -8,7 +8,7 @@ from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.teststeps import RunKafkaAudit
+from testlib.likafka.audit import RunKafkaAudit
 
 
 def apply_revert_brooklin_host(

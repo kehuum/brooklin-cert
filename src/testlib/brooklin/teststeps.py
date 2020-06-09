@@ -8,7 +8,7 @@ from testlib.brooklin.datastream import DatastreamConfigChoice
 from testlib.brooklin.environment import BrooklinClusterChoice
 from testlib.core.teststeps import RunPythonCommand, TestStep, GetRandomHostMixIn
 from testlib.core.utils import OperationFailedError, typename
-from testlib.likafka.teststeps import KafkaClusterChoice
+from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import list_hosts
 
 DATASTREAM_CRUD_SCRIPT = 'bmm-datastream.py'
