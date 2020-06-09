@@ -10,6 +10,7 @@ TEST_DRIVER_OPTION="--driver"
 TEST_DRIVER_HOST_OPTION="--td"
 CLEAN_OPTION="--clean"
 CONFIG_ONLY_OPTION="--config-only"
+CONFIG_PATH_OPTION="--cp"
 VERBOSE_OPTION="-v"
 
 BROOKLIN_CONTROL_TAG="brooklin.cert.control"
@@ -41,6 +42,7 @@ INSTALL_DRIVER_SCRIPT="install-driver.sh"
 SCRIPT_NAME=$(basename "$0")
 SOURCES_DIR=src
 TEST_DRIVER_HOST="lor1-app26891.prod.linkedin.com"
+CONFIG_PATH=".."
 
 function usage {
     echo "usage: $SCRIPT_NAME OPTIONS"
@@ -57,6 +59,7 @@ function usage {
     echo "  $KAFKA_ALL_OPTION         Same as specifying both $KAFKA_SRC_OPTION and $KAFKA_DEST_OPTION"
     echo "  $CLEAN_OPTION         Remove files on all included host and clusters"
     echo "  $CONFIG_ONLY_OPTION   Include $APPLICATION_CFG_FILE file and install script on $BROOKLIN_CONTROL_TAG or $BROOKLIN_EXP_TAG"
+    echo "  $CONFIG_PATH_OPTION path       Include $APPLICATION_CFG_FILE from a specified path. Defaults to '..' if not specified"
     echo "  $VERBOSE_OPTION              Turn on verbose logging"
     echo "  -h              Display help"
     exit "$1"
@@ -73,8 +76,8 @@ function validate_arguments() {
     fi
 
     if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
-      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION and $BROOKLIN_ALL_OPTION."\
-      "Must specify either $BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION with $CONFIG_ONLY_OPTION"
+      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION/$CONFIG_PATH_OPTION and $BROOKLIN_ALL_OPTION."\
+      "Must specify either $BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION with $CONFIG_ONLY_OPTION/$CONFIG_PATH_OPTION"
       usage 1
     fi
   fi
@@ -83,7 +86,7 @@ function validate_arguments() {
   if [[ $INCLUDE_CONFIG_ONLY == 1 ]]; then
     sum=$((INCLUDE_BROOKLIN_CONTROL+INCLUDE_BROOKLIN_EXP))
     if [[ $sum != 1 ]]; then
-      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION and none or both of"\
+      >&2 echo "Cannot specify $CONFIG_ONLY_OPTION/$CONFIG_PATH_OPTION and none or both of"\
       "$BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION"
       usage 1
     fi
@@ -137,10 +140,10 @@ function cleanup_cluster() {
 }
 
 function copy_configs_to_cluster() {
-  echo "Copying configs to $1 ..."
+  echo "Copying configs to $1 from $CONFIG_PATH ..."
   hosts=$(eh -e "$1")
   while read -r h; do
-    redirect_output scp "../$INSTALL_CONFIG_SCRIPT" "../$APPLICATION_CFG_FILE" "$USER"@"$h":~/
+    redirect_output scp "../$INSTALL_CONFIG_SCRIPT" "$CONFIG_PATH/$APPLICATION_CFG_FILE" "$USER"@"$h":~/
   done <<< "$hosts"
 }
 
@@ -199,6 +202,12 @@ case $key in
     $CONFIG_ONLY_OPTION)
     INCLUDE_CONFIG_ONLY=1
     shift # past argument
+    ;;
+    $CONFIG_PATH_OPTION)
+    CONFIG_PATH="$2"
+    INCLUDE_CONFIG_ONLY=1
+    shift # past argument
+    shift # past value
     ;;
     -v)
     VERBOSE=1
