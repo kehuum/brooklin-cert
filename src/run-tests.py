@@ -12,7 +12,7 @@ from testlib.core.runner import TestRunnerBuilder
 from testlib.core.teststeps import Sleep
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.audit import RunKafkaAudit
+from testlib.likafka.audit import AddDeferredKafkaAuditInquiry
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
     restart_kafka_cluster
@@ -37,16 +37,18 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
 
-        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time, endtime_getter=sleep.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+        kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[0].end_time,
+                                                    endtime_getter=sleep.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                       AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[1].end_time,
+                                                    endtime_getter=sleep.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder('test_basic') \
             .add_parallel(*create_datastream) \
-            .add_sequential(sleep) \
-            .add_sequential(run_ekg) \
-            .add_parallel(*kafka_audit) \
+            .add_sequential(sleep, run_ekg, *kafka_audit) \
             .build()
 
         self.doRunTest(runner)
@@ -67,20 +69,20 @@ class BasicTests(KafkaAuditTestCaseBase):
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                       endtime_getter=sleep_after_restart.end_time)
 
-        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                     endtime_getter=sleep_after_restart.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                     endtime_getter=sleep_after_restart.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+        kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[0].end_time,
+                                                    endtime_getter=sleep_after_restart.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                       AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[1].end_time,
+                                                    endtime_getter=sleep_after_restart.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
             .add_sequential(sleep_before_restart) \
             .add_parallel(*restart_datastream) \
-            .add_sequential(sleep_after_restart) \
-            .add_sequential(ekg_analysis) \
-            .add_parallel(*kafka_audit) \
+            .add_sequential(sleep_after_restart, ekg_analysis, *kafka_audit) \
             .build()
 
         self.doRunTest(runner)
@@ -126,19 +128,24 @@ class BasicTests(KafkaAuditTestCaseBase):
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                       endtime_getter=sleep_after_update.end_time)
 
-        kafka_audit_basic = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                           endtime_getter=sleep_after_update.end_time,
-                                           topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                             RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                           endtime_getter=sleep_after_update.end_time,
-                                           topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+        kafka_audit_basic = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                          starttime_getter=create_datastream[0].end_time,
+                                                          endtime_getter=sleep_after_update.end_time,
+                                                          topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                             AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                          starttime_getter=create_datastream[1].end_time,
+                                                          endtime_getter=sleep_after_update.end_time,
+                                                          topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-        kafka_audit_new_topics = (RunKafkaAudit(starttime_getter=update_datastream[0].end_time,
-                                                endtime_getter=sleep_after_update.end_time,
-                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER_SEAS),
-                                  RunKafkaAudit(starttime_getter=update_datastream[1].end_time,
-                                                endtime_getter=sleep_after_update.end_time,
-                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER_SEAS))
+        kafka_audit_new_topics = \
+            (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                          starttime_getter=update_datastream[0].end_time,
+                                          endtime_getter=sleep_after_update.end_time,
+                                          topics_file_choice=KafkaTopicFileChoice.VOYAGER_SEAS),
+             AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                          starttime_getter=update_datastream[1].end_time,
+                                          endtime_getter=sleep_after_update.end_time,
+                                          topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER_SEAS))
 
         runner = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*list_topics_source) \
@@ -148,9 +155,7 @@ class BasicTests(KafkaAuditTestCaseBase):
             .add_sequential(sleep_after_update) \
             .add_parallel(*list_topics_destination_after_update) \
             .add_parallel(*validate_topics_after_update) \
-            .add_sequential(ekg_analysis) \
-            .add_parallel(*kafka_audit_basic) \
-            .add_parallel(*kafka_audit_new_topics) \
+            .add_sequential(ekg_analysis, *kafka_audit_basic, *kafka_audit_new_topics) \
             .build()
 
         self.doRunTest(runner)
@@ -201,12 +206,14 @@ class BasicTests(KafkaAuditTestCaseBase):
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                       endtime_getter=sleep_after_producing_traffic.end_time)
 
-        kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                     endtime_getter=sleep_after_producing_traffic.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                       RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                     endtime_getter=sleep_after_producing_traffic.end_time,
-                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+        kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[0].end_time,
+                                                    endtime_getter=sleep_after_producing_traffic.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                       AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[1].end_time,
+                                                    endtime_getter=sleep_after_producing_traffic.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*create_datastream) \
@@ -228,8 +235,7 @@ class BasicTests(KafkaAuditTestCaseBase):
                 .add_parallel(*update_datastream_after_produce)
 
         runner = builder.add_parallel(*consume_records) \
-            .add_sequential(ekg_analysis) \
-            .add_parallel(*kafka_audit) \
+            .add_sequential(ekg_analysis, *kafka_audit) \
             .build()
 
         self.doRunTest(runner)
@@ -239,63 +245,62 @@ class BrooklinClusterBounceTests(KafkaAuditTestCaseBase):
     """All tests involving cluster restarts that use LID"""
 
     def test_brooklin_cluster_parallel_bounce(self):
-        self.doRunTest(restart_brooklin_cluster('test_brooklin_cluster_parallel_bounce', 100))
+        self.doRunTest(restart_brooklin_cluster(self.testName, 100))
 
     def test_brooklin_cluster_rolling_bounce(self):
-        self.doRunTest(restart_brooklin_cluster('test_brooklin_cluster_rolling_bounce', 10))
+        self.doRunTest(restart_brooklin_cluster(self.testName, 10))
 
 
 class BrooklinErrorInducingTests(KafkaAuditTestCaseBase):
     """All Brooklin error-inducing certification tests"""
 
     def test_kill_random_brooklin_host(self):
-        self.doRunTest(kill_start_brooklin_host('test_kill_random_brooklin_host', False))
+        self.doRunTest(kill_start_brooklin_host(self.testName, False))
 
     def test_kill_leader_brooklin_host(self):
-        self.doRunTest(kill_start_brooklin_host('test_kill_leader_brooklin_host', True))
+        self.doRunTest(kill_start_brooklin_host(self.testName, True))
 
     def test_stop_random_brooklin_host(self):
-        self.doRunTest(stop_start_brooklin_host('test_stop_random_brooklin_host', False))
+        self.doRunTest(stop_start_brooklin_host(self.testName, False))
 
     def test_stop_leader_brooklin_host(self):
-        self.doRunTest(stop_start_brooklin_host('test_stop_leader_brooklin_host', True))
+        self.doRunTest(stop_start_brooklin_host(self.testName, True))
 
     @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_random_brooklin_host(self):
-        self.doRunTest(pause_resume_brooklin_host('test_pause_resume_random_brooklin_host', False))
+        self.doRunTest(pause_resume_brooklin_host(self.testName, False))
 
     @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_leader_brooklin_host(self):
-        self.doRunTest(pause_resume_brooklin_host('test_pause_resume_leader_brooklin_host', True))
+        self.doRunTest(pause_resume_brooklin_host(self.testName, True))
 
 
 class KafkaErrorInducingTests(KafkaAuditTestCaseBase):
     """All Kafka error-inducing certification tests"""
 
     def test_kill_random_source_kafka_broker(self):
-        self.doRunTest(kill_kafka_broker('test_kill_random_source_kafka_broker', KafkaClusterChoice.SOURCE))
+        self.doRunTest(kill_kafka_broker(self.testName, KafkaClusterChoice.SOURCE))
 
     def test_kill_random_destination_kafka_broker(self):
-        self.doRunTest(kill_kafka_broker('test_kill_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION))
+        self.doRunTest(kill_kafka_broker(self.testName, KafkaClusterChoice.DESTINATION))
 
     def test_stop_random_source_kafka_broker(self):
-        self.doRunTest(stop_kafka_broker('test_stop_random_source_kafka_broker', KafkaClusterChoice.SOURCE))
+        self.doRunTest(stop_kafka_broker(self.testName, KafkaClusterChoice.SOURCE))
 
     def test_stop_random_destination_kafka_broker(self):
-        self.doRunTest(stop_kafka_broker('test_stop_random_destination_kafka_broker', KafkaClusterChoice.DESTINATION))
+        self.doRunTest(stop_kafka_broker(self.testName, KafkaClusterChoice.DESTINATION))
 
     def test_perform_ple_source_kafka_cluster(self):
-        self.doRunTest(perform_kafka_ple('test_perform_ple_source_kafka_cluster', KafkaClusterChoice.SOURCE))
+        self.doRunTest(perform_kafka_ple(self.testName, KafkaClusterChoice.SOURCE))
 
     def test_perform_ple_destination_kafka_cluster(self):
-        self.doRunTest(perform_kafka_ple('test_perform_ple_destination_kafka_cluster', KafkaClusterChoice.DESTINATION))
+        self.doRunTest(perform_kafka_ple(self.testName, KafkaClusterChoice.DESTINATION))
 
     def test_restart_source_kafka_cluster(self):
-        self.doRunTest(restart_kafka_cluster('test_restart_source_kafka_cluster', KafkaClusterChoice.SOURCE, 10))
+        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.SOURCE, 10))
 
     def test_restart_destination_kafka_cluster(self):
-        self.doRunTest(restart_kafka_cluster('test_restart_destination_kafka_cluster',
-                                             KafkaClusterChoice.DESTINATION, 10))
+        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.DESTINATION, 10))
 
 
 if __name__ == '__main__':

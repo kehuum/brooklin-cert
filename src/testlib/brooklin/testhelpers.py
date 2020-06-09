@@ -8,17 +8,16 @@ from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.audit import RunKafkaAudit
+from testlib.likafka.audit import AddDeferredKafkaAuditInquiry
 
 
 def apply_revert_brooklin_host(
-        datastream_name, is_leader,
+        test_name, is_leader,
         apply_random_step_type: Type[Union[KillRandomBrooklinHost, StopRandomBrooklinHost, PauseRandomBrooklinHost]],
         apply_leader_step_type: Type[Union[KillLeaderBrooklinHost, StopLeaderBrooklinHost, PauseLeaderBrooklinHost]],
         revert_step_type: Type[Union[StartBrooklinHost, ResumeBrooklinHost]]) -> TestRunner:
-
-    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
-                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+    create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
     sleep_before_apply = Sleep(secs=60 * 10)
 
@@ -36,35 +35,33 @@ def apply_revert_brooklin_host(
     ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                   endtime_getter=sleep_after_revert.end_time)
 
-    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_revert.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_revert.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+    kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[0].end_time,
+                                                endtime_getter=sleep_after_revert.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                   AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[1].end_time,
+                                                endtime_getter=sleep_after_revert.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-    return TestRunnerBuilder(test_name=datastream_name) \
+    return TestRunnerBuilder(test_name=test_name) \
         .add_parallel(*create_datastream) \
         .add_sequential(sleep_before_apply) \
         .add_parallel(*apply_brooklin_host) \
         .add_sequential(sleep_after_apply) \
         .add_parallel(*revert_brooklin_host) \
-        .add_sequential(sleep_after_revert) \
-        .add_sequential(ekg_analysis) \
-        .add_parallel(*kafka_audit) \
+        .add_sequential(sleep_after_revert, ekg_analysis, *kafka_audit) \
         .build()
 
 
-def kill_start_brooklin_host(datastream_name, is_leader) -> TestRunner:
-    return apply_revert_brooklin_host(
-        datastream_name, is_leader, apply_leader_step_type=KillLeaderBrooklinHost,
-        apply_random_step_type=KillRandomBrooklinHost, revert_step_type=StartBrooklinHost)
+def kill_start_brooklin_host(test_name, is_leader) -> TestRunner:
+    return apply_revert_brooklin_host(test_name, is_leader, apply_leader_step_type=KillLeaderBrooklinHost,
+                                      apply_random_step_type=KillRandomBrooklinHost, revert_step_type=StartBrooklinHost)
 
 
-def stop_start_brooklin_host(datastream_name, is_leader) -> TestRunner:
-    return apply_revert_brooklin_host(
-        datastream_name, is_leader, apply_leader_step_type=StopLeaderBrooklinHost,
-        apply_random_step_type=StopRandomBrooklinHost, revert_step_type=StartBrooklinHost)
+def stop_start_brooklin_host(test_name, is_leader) -> TestRunner:
+    return apply_revert_brooklin_host(test_name, is_leader, apply_leader_step_type=StopLeaderBrooklinHost,
+                                      apply_random_step_type=StopRandomBrooklinHost, revert_step_type=StartBrooklinHost)
 
 
 def pause_resume_brooklin_host(datastream_name, is_leader) -> TestRunner:
@@ -73,9 +70,9 @@ def pause_resume_brooklin_host(datastream_name, is_leader) -> TestRunner:
         apply_random_step_type=PauseRandomBrooklinHost, revert_step_type=ResumeBrooklinHost)
 
 
-def restart_brooklin_cluster(datastream_name, host_concurrency) -> TestRunner:
-    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
-                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+def restart_brooklin_cluster(test_name, host_concurrency) -> TestRunner:
+    create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
     sleep_before_cluster_restart = Sleep(secs=60 * 10)
 
@@ -87,18 +84,18 @@ def restart_brooklin_cluster(datastream_name, host_concurrency) -> TestRunner:
     ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                   endtime_getter=sleep_after_cluster_restart.end_time)
 
-    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+    kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[0].end_time,
+                                                endtime_getter=sleep_after_cluster_restart.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                   AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[1].end_time,
+                                                endtime_getter=sleep_after_cluster_restart.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-    return TestRunnerBuilder(test_name=datastream_name) \
+    return TestRunnerBuilder(test_name=test_name) \
         .add_parallel(*create_datastream) \
         .add_sequential(sleep_before_cluster_restart) \
         .add_parallel(*restart_brooklin) \
-        .add_sequential(sleep_after_cluster_restart) \
-        .add_sequential(ekg_analysis) \
-        .add_parallel(*kafka_audit) \
+        .add_sequential(sleep_after_cluster_restart, ekg_analysis, *kafka_audit) \
         .build()

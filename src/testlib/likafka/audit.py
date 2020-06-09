@@ -201,11 +201,14 @@ class KafkaAuditTestCaseBase(TestCase):
     Extenders are required to use doRunTest() defined on this class to run their
     tests or else all requested Kafka audit checks will not be executed. This is
     necessary so this class can guarantee that audit checks are only executed if
-    the tests that requested them actually passed."""
+    the tests that requested them actually passed.
+
+    Methods and attributes on this class use lowerCamelCase for consistency with
+    the parent type unittest.TestCase"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._audit_inquiry_store = KafkaAuditInquiryStore()
+        self._auditInquiryStore = KafkaAuditInquiryStore()
         self._success = False
 
     def setUp(self):
@@ -213,24 +216,24 @@ class KafkaAuditTestCaseBase(TestCase):
         # added by past executions of this test so they
         # don't get used in the Kafka audit tests executed
         # after this test is complete
-        self._remove_audit_inquiries()
+        self._removeAuditInquiries()
 
     def tearDown(self):
         if not self._success:
             # We don't want to query Kafka audit if the test fails
-            self._remove_audit_inquiries()
+            self._removeAuditInquiries()
 
     def doRunTest(self, runner: TestRunner):
         self._success = runner.run()
         self.assertTrue(self._success, "Running test failed")
 
     @property
-    def test_name(self):
+    def testName(self):
         """Returns the name of the test without the module name (e.g. BasicTests.test_basic)"""
         return self.id().split('.', maxsplit=1)[1]
 
-    def _remove_audit_inquiries(self):
-        self._audit_inquiry_store.remove_inquiries(self.test_name)
+    def _removeAuditInquiries(self):
+        self._auditInquiryStore.remove_inquiries(self.testName)
 
 
 class KafkaAuditInquiryTest(TestCase):

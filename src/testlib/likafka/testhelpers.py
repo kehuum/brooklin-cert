@@ -6,16 +6,16 @@ from testlib.core.runner import TestRunnerBuilder, TestRunner
 from testlib.core.teststeps import Sleep, RestartCluster
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
-from testlib.likafka.audit import RunKafkaAudit
+from testlib.likafka.audit import AddDeferredKafkaAuditInquiry
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, StopRandomKafkaHost, \
     PerformKafkaPreferredLeaderElection
 
 
-def apply_revert_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice,
+def apply_revert_kafka_broker(test_name, kafka_cluster: KafkaClusterChoice,
                               apply_step_type: Type[Union[KillRandomKafkaHost, StopRandomKafkaHost]]) -> TestRunner:
-    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
-                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+    create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
     sleep_before_apply = Sleep(secs=60 * 10)
 
@@ -30,38 +30,35 @@ def apply_revert_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice
     ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                   endtime_getter=sleep_after_revert.end_time)
 
-    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_revert.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_revert.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+    kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[0].end_time,
+                                                endtime_getter=sleep_after_revert.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                   AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[1].end_time,
+                                                endtime_getter=sleep_after_revert.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-    return TestRunnerBuilder(test_name=datastream_name) \
+    return TestRunnerBuilder(test_name=test_name) \
         .add_parallel(*create_datastream) \
-        .add_sequential(sleep_before_apply) \
-        .add_sequential(apply_kafka_broker) \
-        .add_sequential(sleep_after_apply) \
-        .add_sequential(revert_kafka_broker) \
-        .add_sequential(sleep_after_revert) \
-        .add_sequential(ekg_analysis) \
-        .add_parallel(*kafka_audit) \
+        .add_sequential(sleep_before_apply, apply_kafka_broker, sleep_after_apply, revert_kafka_broker,
+                        sleep_after_revert, ekg_analysis, *kafka_audit) \
         .build()
 
 
-def kill_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
-    return apply_revert_kafka_broker(datastream_name=datastream_name, kafka_cluster=kafka_cluster,
+def kill_kafka_broker(test_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    return apply_revert_kafka_broker(test_name=test_name, kafka_cluster=kafka_cluster,
                                      apply_step_type=KillRandomKafkaHost)
 
 
-def stop_kafka_broker(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
-    return apply_revert_kafka_broker(datastream_name=datastream_name, kafka_cluster=kafka_cluster,
+def stop_kafka_broker(test_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    return apply_revert_kafka_broker(test_name=test_name, kafka_cluster=kafka_cluster,
                                      apply_step_type=StopRandomKafkaHost)
 
 
-def perform_kafka_ple(datastream_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
-    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
-                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+def perform_kafka_ple(test_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
+    create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
     sleep_before_ple = Sleep(secs=60 * 10)
 
@@ -72,26 +69,24 @@ def perform_kafka_ple(datastream_name, kafka_cluster: KafkaClusterChoice) -> Tes
     ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                   endtime_getter=sleep_after_ple.end_time)
 
-    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_ple.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_ple.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+    kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[0].end_time,
+                                                endtime_getter=sleep_after_ple.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                   AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[1].end_time,
+                                                endtime_getter=sleep_after_ple.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-    return TestRunnerBuilder(test_name=datastream_name) \
+    return TestRunnerBuilder(test_name=test_name) \
         .add_parallel(*create_datastream) \
-        .add_sequential(sleep_before_ple) \
-        .add_sequential(perform_ple) \
-        .add_sequential(sleep_after_ple) \
-        .add_sequential(ekg_analysis) \
-        .add_parallel(*kafka_audit) \
+        .add_sequential(sleep_before_ple, perform_ple, sleep_after_ple, ekg_analysis, *kafka_audit) \
         .build()
 
 
-def restart_kafka_cluster(datastream_name, kafka_cluster: KafkaClusterChoice, host_concurrency) -> TestRunner:
-    create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
-                         CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
+def restart_kafka_cluster(test_name, kafka_cluster: KafkaClusterChoice, host_concurrency) -> TestRunner:
+    create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                         CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
     sleep_before_cluster_restart = Sleep(secs=60 * 10)
 
@@ -102,18 +97,17 @@ def restart_kafka_cluster(datastream_name, kafka_cluster: KafkaClusterChoice, ho
     ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
                                   endtime_getter=sleep_after_cluster_restart.end_time)
 
-    kafka_audit = (RunKafkaAudit(starttime_getter=create_datastream[0].end_time,
-                                 endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.VOYAGER),
-                   RunKafkaAudit(starttime_getter=create_datastream[1].end_time,
-                                 endtime_getter=sleep_after_cluster_restart.end_time,
-                                 topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+    kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[0].end_time,
+                                                endtime_getter=sleep_after_cluster_restart.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                   AddDeferredKafkaAuditInquiry(test_name=test_name,
+                                                starttime_getter=create_datastream[1].end_time,
+                                                endtime_getter=sleep_after_cluster_restart.end_time,
+                                                topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
-    return TestRunnerBuilder(test_name=datastream_name) \
+    return TestRunnerBuilder(test_name=test_name) \
         .add_parallel(*create_datastream) \
-        .add_sequential(sleep_before_cluster_restart) \
-        .add_sequential(restart_kafka) \
-        .add_sequential(sleep_after_cluster_restart) \
-        .add_sequential(ekg_analysis) \
-        .add_parallel(*kafka_audit) \
+        .add_sequential(sleep_before_cluster_restart, restart_kafka, sleep_after_cluster_restart, ekg_analysis,
+                        *kafka_audit) \
         .build()

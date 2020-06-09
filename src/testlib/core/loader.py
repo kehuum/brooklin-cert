@@ -26,7 +26,7 @@ class CustomTestLoader(TestLoader):
             if isinstance(testcase, KafkaAuditTestCaseBase):
                 # For all test cases of type KafkaAuditTestCaseBase,
                 # create a corresponding KafkaAuditInquiryTest
-                audit_test = KafkaAuditInquiryTest(testcase.test_name)
+                audit_test = KafkaAuditInquiryTest(testcase.testName)
                 kafka_audit_tests.append(audit_test)
         # Append all KafkaAuditInquiryTests so they are executed last
         tests_to_run.addTests(kafka_audit_tests)

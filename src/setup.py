@@ -11,7 +11,7 @@ def get_files(*dirs, ext='*'):
 
 setuptools.setup(
     name="brooklin-certification",
-    version="0.0.2",
+    version="0.0.3",
     packages=setuptools.find_packages(),
     scripts=get_files(".", "samples", ext="py"),
     data_files=[("data", get_files("data", ext="txt"))],
