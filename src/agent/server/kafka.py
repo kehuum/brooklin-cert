@@ -49,8 +49,8 @@ class XMLRPCKafkaServerMixIn(KafkaCommands):
         log.info(f'Killing Kafka with pid: {pid}')
         try:
             os.kill(pid, signal.SIGKILL)
-        except Exception as e:
-            log.error(f'Error when trying to kill Kafka: {e}')
+        except Exception:
+            log.exception('Error when trying to kill Kafka')
             raise
 
 

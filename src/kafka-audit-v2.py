@@ -74,8 +74,8 @@ def is_cert_tier(topic_counts):
 def process(topic, start_ms, end_ms):
     try:
         topic_counts = get_audit_counts(topic, start_ms, end_ms)
-    except ValueError as e:
-        log.error('Unable to get audit counts, error: {}'.format(e))
+    except ValueError:
+        log.exception('Unable to get audit counts')
         return False
     else:
         return (topic, topic_counts) if is_cert_tier(topic_counts) else False

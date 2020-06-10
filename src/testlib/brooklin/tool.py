@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from abc import ABC, abstractmethod
-from testlib.core.utils import typename, retry
+from testlib.core.utils import retry
 from testlib.brooklin.datastream import Datastream
 
 BASE_TOOL_COMMAND = 'brooklin-tool datastream'
@@ -183,24 +183,7 @@ class BrooklinToolCommandBuilder(object):
 
 class DatastreamCommandError(Exception):
     """Parent exception for all errors encountered when executing datastream commands (e.g. create, delete)"""
-
-    def __init__(self, message, cause=None):
-        self._message = message
-        self._cause = cause
-
-    @property
-    def message(self):
-        return self._message
-
-    @property
-    def cause(self):
-        return self._cause
-
-    def __str__(self):
-        s = f"Message: {self.message}"
-        if self.cause:
-            s += f"\nCause: {typename(self.cause)}: {self.cause}"
-        return s
+    pass
 
 
 class DatastreamCommandFailedError(DatastreamCommandError):
@@ -211,8 +194,8 @@ class DatastreamCommandFailedError(DatastreamCommandError):
 class ShellCommandTimeoutError(DatastreamCommandError):
     """Exception raised when a shell command (typically brooklin-tool) takes too long to execute"""
 
-    def __init__(self, command, cause=None):
-        super().__init__(f'Time out elapsed waiting for command to complete: {command}', cause)
+    def __init__(self, command):
+        super().__init__(f'Time out elapsed waiting for command to complete: {command}')
 
 
 class ShellCommandFailedError(DatastreamCommandError):
@@ -227,8 +210,8 @@ class ShellCommandFailedError(DatastreamCommandError):
 class NoSuchDatastreamError(DatastreamCommandError):
     """Exception raised when a datastream is not found"""
 
-    def __init__(self, datastream, cause=None):
-        super().__init__(f'Datastream not found: {datastream}', cause)
+    def __init__(self, datastream):
+        super().__init__(f'Datastream not found: {datastream}')
 
 
 class DatastreamCommand(object):
@@ -264,7 +247,7 @@ class DatastreamCommand(object):
         try:
             returncode = process.wait(timeout)
         except subprocess.TimeoutExpired as err:
-            raise ShellCommandTimeoutError(command, err)
+            raise ShellCommandTimeoutError(command) from err
         else:
             if returncode != 0:
                 raise ShellCommandFailedError(command, returncode, process.stderr)
@@ -303,7 +286,7 @@ class GetDatastream(SimpleDatastreamCommand):
         try:
             return Datastream(json.loads(output))
         except json.JSONDecodeError as err:
-            raise NoSuchDatastreamError(self.args.name, err)
+            raise NoSuchDatastreamError(self.args.name) from err
 
 
 class ListDatastream(SimpleDatastreamCommand):

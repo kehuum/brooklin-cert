@@ -45,12 +45,12 @@ def main():
     try:
         lid_client.restart(product=args.product, fabric=args.fabric, product_tag=args.product_tag,
                            host_concurrency=args.host_concurrency)
-    except OperationFailedError as err:
-        log.error(f'Restarting product failed with error: {err.message}')
+    except OperationFailedError:
+        log.exception('Restarting product failed')
         sys.exit(1)
     else:
         log.info(f'Restarting product succeeded. Product: {args.product}, fabric: {args.fabric}, '
-                     f'product-tag: {args.product_tag}, host-concurrency: {args.host_concurrency}%')
+                 f'product-tag: {args.product_tag}, host-concurrency: {args.host_concurrency}%')
 
 
 if __name__ == '__main__':

@@ -28,7 +28,8 @@ class ArgumentParser(object):
         # Add all the optional arguments for the common parser
         self.common_parser.add_argument('--debug', action='store_true')
         self.common_parser.add_argument('--cert', dest='ssl_certfile', default=DEFAULT_SSL_CERTFILE,
-                                        help=f'SSL certificate file path (PEM format) (default = {DEFAULT_SSL_CERTFILE})')
+                                        help=f'SSL certificate file path (PEM format) '
+                                             f'(default = {DEFAULT_SSL_CERTFILE})')
         self.common_parser.add_argument('--ca', dest='ssl_cafile', default=DEFAULT_SSL_CAFILE,
                                         help=f'SSL certificate authority file path (default = {DEFAULT_SSL_CAFILE})')
 
@@ -61,7 +62,8 @@ class ArgumentParser(object):
 
         create_command_optional_group = create_command.add_argument_group('optional arguments')
         create_command_optional_group.add_argument('--partitions', '-p', default=8, type=int,
-                                                   help='The number of partitions to create the topic with (default = 8)')
+                                                   help='The number of partitions to create the topic with '
+                                                        '(default = 8)')
         create_command_optional_group.add_argument('--rf', dest='replication_factor', default=3, type=int,
                                                    help='The replication factor to create the topic with (default = 3)')
         create_command_optional_group.add_argument('--tc', dest='topic_configs', action='append',

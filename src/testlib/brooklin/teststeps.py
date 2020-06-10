@@ -185,8 +185,8 @@ class ManipulateBrooklinCluster(TestStep):
             try:
                 host_step.run()
             except Exception as err:
-                raise OperationFailedError(
-                    message=f'Executing cluster action of type {self.step_class} failed on {host}', cause=err)
+                message = f'Executing cluster action of type {self.step_class} failed on {host}'
+                raise OperationFailedError(message) from err
 
     def __str__(self):
         return f'{typename(self)}(cluster: {self.cluster})'

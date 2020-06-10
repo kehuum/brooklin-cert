@@ -15,7 +15,7 @@ class AdminClient(object):
     @staticmethod
     def create_admin_client(bootstrap_servers, ssl_certfile):
         log.debug(f'Creating Kafka AdminClient with bootstrap-servers: {bootstrap_servers}, '
-                      f'cert file: {ssl_certfile}')
+                  f'cert file: {ssl_certfile}')
         return KafkaAdminClient(bootstrap_servers=bootstrap_servers,
                                 security_protocol='SSL',
                                 ssl_check_hostname=False,
@@ -31,7 +31,7 @@ class AdminClient(object):
                 config_dict[key_value[0]] = key_value[1]
 
         log.info(f'Creating topic: {name} with partitions: {partitions}, replication factor:'
-                     f' {replication_factor}, and topic configs: {config_dict}')
+                 f' {replication_factor}, and topic configs: {config_dict}')
         self.admin_client.create_topics([NewTopic(name=name, num_partitions=partitions,
                                                   replication_factor=replication_factor, topic_configs=config_dict)])
 

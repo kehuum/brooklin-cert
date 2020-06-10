@@ -130,8 +130,9 @@ class ArgumentParser(object):
         create_command_optional_group.add_argument('--topiccreate', action='store_true',
                                                    help='Enable topic creation ability in BMM')
         create_command_optional_group.add_argument('--metadata', action='append',
-                                                   help='Metadata property overrides defined as key value pairs separated '
-                                                        'by ":". This can be repeated to specify multiple properties')
+                                                   help='Metadata property overrides defined as key value pairs '
+                                                        'separated by ":". This can be repeated to specify multiple '
+                                                        'properties')
         create_command.set_defaults(cmd=CreateDatastream)
 
     def delete_command_parser(self):

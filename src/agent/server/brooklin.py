@@ -8,7 +8,6 @@ from agent.api.brooklin import BrooklinCommands
 from agent.server.basic import XMLRPCServerBase, XMLRPCBasicServerMixIn
 from agent.utils import is_process_running, get_pid_from_file, run_command
 
-
 log = logging.getLogger(__name__)
 
 
@@ -41,7 +40,7 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         response = urllib.request.urlopen(is_leader_url)
         body = response.read().decode('utf-8')
 
-        is_leader = int(re.findall('<td align=\"right\" class=\"mbean_row\">(\d)</td>', body)[0])
+        is_leader = int(re.findall(r'<td align="right" class="mbean_row">(\d)</td>', body)[0])
         if is_leader < 0 or is_leader > 1:
             raise ValueError(f'isLeader parsed from response is incorrect: {is_leader}')
         return bool(is_leader)
@@ -91,8 +90,8 @@ class XMLRPCBrooklinServerMixIn(BrooklinCommands):
         log.info(f'Sending {sig} to Brooklin with pid: {pid}')
         try:
             os.kill(pid, sig)
-        except Exception as e:
-            log.error(f'Error when trying to send {sig} to Brooklin: {e}')
+        except Exception:
+            log.exception(f'Error when trying to send {sig} to Brooklin')
             raise
 
 

@@ -12,23 +12,7 @@ log = logging.getLogger(__name__)
 
 
 class OperationFailedError(Exception):
-    def __init__(self, message, cause=None):
-        self._message = message
-        self._cause = cause
-
-    @property
-    def message(self):
-        return self._message
-
-    @property
-    def cause(self):
-        return self._cause
-
-    def __str__(self):
-        s = f'Message: {self.message}'
-        if self.cause:
-            s += f'\nCause: {typename(self.cause)}: {self.cause}'
-        return s
+    pass
 
 
 def csv(tokens):
@@ -155,7 +139,7 @@ def send_request(send_fn: Callable[[], requests.Response], error_message: str,
     try:
         response = send_fn()
     except requests.exceptions.RequestException as err:
-        raise OperationFailedError(error_message, err)
+        raise OperationFailedError(error_message) from err
     else:
         status_code = response.status_code
         if status_code not in allowed_status_codes:
@@ -169,7 +153,7 @@ def get_response_json(response, error_message):
         return response.json()
     except ValueError as err:
         raise OperationFailedError(f'{error_message}; '
-                                   f'response contained invalid or empty json content:\n{response}', err)
+                                   f'response contained invalid or empty json content:\n{response}') from err
 
 
 def typename(o: object):
