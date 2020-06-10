@@ -2,44 +2,26 @@
 
 SCRIPT_NAME=$(basename "$0")
 BROOKLIN_AGENT_OPTION="--brooklin"
-KAFKA_AGENT_OPTION="--kafka"
 CLEAN_OPTION="--clean"
 BROOKLIN_SERVICE="brooklin-service"
-KAFKA="kafka"
 BROOKLIN_CERTIFICATION_DIR="brooklin-certification-*"
 BROOKLIN_CERTIFICATION_TARBALL="$BROOKLIN_CERTIFICATION_DIR.tar.gz"
 RUN_AGENT_SCRIPT="run-agent.sh"
 AGENT_LOG="../agent.log"
 
 INCLUDE_BROOKLIN_AGENT=0
-INCLUDE_KAFKA_AGENT=0
 CLEAN=0
 VERBOSE=0
 
 function usage {
     echo "usage: $SCRIPT_NAME OPTIONS"
-    echo "Install or uninstall test agent on localhost"
+    echo "Install or uninstall Brooklin's test agent on localhost"
     echo
     echo "OPTIONS"
-    echo "  $BROOKLIN_AGENT_OPTION  Include Brooklin agent"
-    echo "  $KAFKA_AGENT_OPTION     Include Kafka agent"
-    echo "  $CLEAN_OPTION     Remove an agent"
+    echo "  $CLEAN_OPTION     Remove an installed agent"
     echo "  -v          Turn on verbose logging"
     echo "  -h          Display help"
     exit "$1"
-}
-
-function validate_arguments() {
-  sum=$((INCLUDE_BROOKLIN_AGENT+INCLUDE_KAFKA_AGENT))
-  if [[ $sum -gt 1 ]]; then
-    >&2 echo "Cannot specify both $BROOKLIN_AGENT_OPTION and $KAFKA_AGENT_OPTION"
-    usage 1
-  fi
-
-  if [[ $CLEAN == 1 ]] && [[ $sum -eq 0 ]]; then
-    >&2 echo "Cannot specify $CLEAN_OPTION without specifying either $BROOKLIN_AGENT_OPTION or $KAFKA_AGENT_OPTION"
-    usage 1
-  fi
 }
 
 function exit_on_failure() {
@@ -110,14 +92,6 @@ do
 key="$1"
 
 case $key in
-    $BROOKLIN_AGENT_OPTION)
-    INCLUDE_BROOKLIN_AGENT=1
-    shift # past argument
-    ;;
-    $KAFKA_AGENT_OPTION)
-    INCLUDE_KAFKA_AGENT=1
-    shift # past argument
-    ;;
     $CLEAN_OPTION)
     CLEAN=1
     shift # past argument
@@ -136,8 +110,6 @@ case $key in
 esac
 done
 
-validate_arguments
-
 if [[ $CLEAN == 0 ]]; then
   # Extract scripts tarball
   echo "Extracting scripts tarball ..."
@@ -147,20 +119,12 @@ if [[ $CLEAN == 0 ]]; then
   BROOKLIN_CERTIFICATION_DIR=$(find . -name "$BROOKLIN_CERTIFICATION_DIR" -type d | cut -c3-)
 
   # Generate script to run agent and copy it within locker
-  if [[ $INCLUDE_BROOKLIN_AGENT == 1 ]]; then
-      deploy_agent_in_locker $BROOKLIN_AGENT_OPTION $BROOKLIN_SERVICE
-  elif [[ $INCLUDE_KAFKA_AGENT == 1 ]]; then
-      deploy_agent_in_locker $KAFKA_AGENT_OPTION $KAFKA
-  fi
+  deploy_agent_in_locker $BROOKLIN_AGENT_OPTION $BROOKLIN_SERVICE
 
   rm -rf "$BROOKLIN_CERTIFICATION_DIR"
 
 else # $CLEAN = 1
-  if [[ $INCLUDE_BROOKLIN_AGENT == 1 ]]; then
-    cleanup_locker $BROOKLIN_SERVICE
-  elif [[ $INCLUDE_KAFKA_AGENT == 1 ]]; then
-    cleanup_locker $KAFKA
-  fi
+  cleanup_locker $BROOKLIN_SERVICE
 
   echo "Deleting scripts and tarballs ..."
   find . -name "$BROOKLIN_CERTIFICATION_DIR" -exec rm -rf -- '{}' +

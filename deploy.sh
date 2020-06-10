@@ -3,9 +3,6 @@
 BROOKLIN_ALL_OPTION="--brooklin"
 BROOKLIN_CONTROL_OPTION="--ctrl"
 BROOKLIN_EXP_OPTION="--exp"
-KAFKA_ALL_OPTION="--kafka"
-KAFKA_SRC_OPTION="--src"
-KAFKA_DEST_OPTION="--dest"
 TEST_DRIVER_OPTION="--driver"
 TEST_DRIVER_HOST_OPTION="--td"
 CLEAN_OPTION="--clean"
@@ -15,16 +12,11 @@ VERBOSE_OPTION="-v"
 
 BROOKLIN_CONTROL_TAG="brooklin.cert.control"
 BROOKLIN_EXP_TAG="brooklin.cert.candidate"
-KAFKA_SRC_TAG="kafka.cert"
-KAFKA_DEST_TAG="kafka.brooklin-cert"
 
 INCLUDE_TEST_DRIVER=0
 INCLUDE_BROOKLIN_ALL=0
 INCLUDE_BROOKLIN_CONTROL=0
 INCLUDE_BROOKLIN_EXP=0
-INCLUDE_KAFKA_ALL=0
-INCLUDE_KAFKA_SRC=0
-INCLUDE_KAFKA_DEST=0
 INCLUDE_CONFIG_ONLY=0
 PROMPT_FOR_2FA=1
 CLEAN=0
@@ -54,9 +46,6 @@ function usage {
     echo "  $BROOKLIN_CONTROL_OPTION          Include test agent on $BROOKLIN_CONTROL_TAG cluster"
     echo "  $BROOKLIN_EXP_OPTION           Include test agent on $BROOKLIN_EXP_TAG cluster"
     echo "  $BROOKLIN_ALL_OPTION      Same as specifying both $BROOKLIN_CONTROL_OPTION and $BROOKLIN_EXP_OPTION"
-    echo "  $KAFKA_SRC_OPTION           Include test agent on $KAFKA_SRC_TAG cluster"
-    echo "  $KAFKA_DEST_OPTION          Include test agent on $KAFKA_DEST_TAG cluster"
-    echo "  $KAFKA_ALL_OPTION         Same as specifying both $KAFKA_SRC_OPTION and $KAFKA_DEST_OPTION"
     echo "  $CLEAN_OPTION         Remove files on all included host and clusters"
     echo "  $CONFIG_ONLY_OPTION   Include $APPLICATION_CFG_FILE file and install script on $BROOKLIN_CONTROL_TAG or $BROOKLIN_EXP_TAG"
     echo "  $CONFIG_PATH_OPTION path       Include $APPLICATION_CFG_FILE from a specified path. Defaults to '..' if not specified"
@@ -88,16 +77,6 @@ function validate_arguments() {
     if [[ $sum != 1 ]]; then
       >&2 echo "Cannot specify $CONFIG_ONLY_OPTION/$CONFIG_PATH_OPTION and none or both of"\
       "$BROOKLIN_CONTROL_OPTION or $BROOKLIN_EXP_OPTION"
-      usage 1
-    fi
-  fi
-
-  # Validate Kafka options
-  if [[ $INCLUDE_KAFKA_ALL == 1 ]]; then
-    sum=$((INCLUDE_KAFKA_SRC+INCLUDE_KAFKA_DEST))
-    if [[ $sum == 1 ]]; then
-      >&2 echo "Cannot specify $KAFKA_ALL_OPTION and one of"\
-      "$KAFKA_SRC_OPTION or $KAFKA_DEST_OPTION"
       usage 1
     fi
   fi
@@ -183,18 +162,6 @@ case $key in
     INCLUDE_BROOKLIN_ALL=1
     shift # past argument
     ;;
-    $KAFKA_SRC_OPTION)
-    INCLUDE_KAFKA_SRC=1
-    shift # past argument
-    ;;
-    $KAFKA_DEST_OPTION)
-    INCLUDE_KAFKA_DEST=1
-    shift # past argument
-    ;;
-    $KAFKA_ALL_OPTION)
-    INCLUDE_KAFKA_ALL=1
-    shift # past argument
-    ;;
     $CLEAN_OPTION)
     CLEAN=1
     shift # past argument
@@ -228,11 +195,6 @@ validate_arguments
 if [[ $INCLUDE_BROOKLIN_ALL == 1 ]]; then
   INCLUDE_BROOKLIN_EXP=1
   INCLUDE_BROOKLIN_CONTROL=1
-fi
-
-if [[ $INCLUDE_KAFKA_ALL == 1 ]]; then
-  INCLUDE_KAFKA_SRC=1
-  INCLUDE_KAFKA_DEST=1
 fi
 
 if [[ $CLEAN == 0 ]]; then
@@ -288,16 +250,6 @@ if [[ $CLEAN == 0 ]]; then
     fi
   fi
 
-  # Kafka source
-  if [[ $INCLUDE_KAFKA_SRC == 1 ]]; then
-    copy_scripts_to_cluster "%prod-lva1.tag_hosts:$KAFKA_SRC_TAG" $KAFKA_ALL_OPTION
-  fi
-
-  # Kafka dest
-  if [[ $INCLUDE_KAFKA_DEST == 1 ]]; then
-    copy_scripts_to_cluster "%prod-lor1.tag_hosts:$KAFKA_DEST_TAG" $KAFKA_ALL_OPTION
-  fi
-
   # Clean up generated files
   redirect_output rm -rf $DEPENDENCIES_DIR $DEPENDENCIES_TARBALL $DIST_DIR *.egg-info
   exit_on_failure "Cleaning up generated files and directories failed"
@@ -328,15 +280,5 @@ else # $CLEAN == 1
     else
       cleanup_cluster "%prod-lor1.tag_hosts:$BROOKLIN_EXP_TAG" $BROOKLIN_ALL_OPTION
     fi
-  fi
-
-  # Kafka source
-  if [[ $INCLUDE_KAFKA_SRC == 1 ]]; then
-    cleanup_cluster "%prod-lva1.tag_hosts:$KAFKA_SRC_TAG" $KAFKA_ALL_OPTION
-  fi
-
-  # Kafka dest
-  if [[ $INCLUDE_KAFKA_DEST == 1 ]]; then
-    cleanup_cluster "%prod-lor1.tag_hosts:$KAFKA_DEST_TAG" $KAFKA_ALL_OPTION
   fi
 fi
