@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-
+import argparse
 import logging
+import sys
 import unittest
 
 from testlib.brooklin.datastream import DatastreamConfigChoice
@@ -304,4 +305,8 @@ class KafkaErrorInducingTests(KafkaAuditTestCaseBase):
 
 
 if __name__ == '__main__':
-    unittest.main(testLoader=CustomTestLoader())
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--audit-only', dest='audit_only', action='store_true')  # defaults to False
+    args, rest = parser.parse_known_args()
+
+    unittest.main(argv=sys.argv[:1] + rest, testLoader=CustomTestLoader(args.audit_only))
