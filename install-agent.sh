@@ -83,10 +83,6 @@ function cleanup_locker() {
   redirect_output sudo locker run "$LOCKER_NAME" "rm -rf ./$RUN_AGENT_SCRIPT"
 }
 
-if [[ $# -eq 0 ]]; then
-  usage 2
-fi
-
 while [[ $# -gt 0 ]]
 do
 key="$1"
