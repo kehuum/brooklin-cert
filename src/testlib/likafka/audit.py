@@ -1,4 +1,5 @@
 import json
+import logging
 
 from typing import NamedTuple, List, Optional
 from unittest import TestCase
@@ -9,6 +10,11 @@ from testlib.data import KafkaTopicFileChoice
 
 KafkaAuditInquiry = NamedTuple('KafkaAuditInquiry',
                                [('startms', int), ('endms', int), ('topics_file_choice', KafkaTopicFileChoice)])
+
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+log = logging.getLogger()
+
+TEN_MINUTES_IN_MILLISECONDS = 600000
 
 
 class KafkaAuditInquiryCollection(object):
@@ -134,9 +140,13 @@ class KafkaAuditInquiryStore(object):
 
 
 class RunKafkaAudit(RunPythonCommand):
-    """Test step for running Kafka audit"""
+    """Test step for running Kafka audit. If the round_timestamp option is set to true, the test rounds up the
+    start time to the next 10 minute boundary, and rounds down the end time to the previous 10 minute boundary.
+    Audit counts are generated every ten minutes, so this prevents test flakiness due to picking up a partial time
+    interval during which the test may not have been running."""
 
-    def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice):
+    def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice,
+                 round_timestamps=True):
         super().__init__()
         if not topics_file_choice:
             raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
@@ -147,13 +157,31 @@ class RunKafkaAudit(RunPythonCommand):
         self.topics_file_choice = topics_file_choice
         self.starttime_getter = starttime_getter
         self.endtime_getter = endtime_getter
+        self.round_timestamps = round_timestamps
 
     @property
     def main_command(self):
+        startms = self.starttime_getter() * 1000
+        endms = self.endtime_getter() * 1000
+        if self.round_timestamps:
+            # Round up the start timestamp to the next 10 minute window
+            if (startms % TEN_MINUTES_IN_MILLISECONDS) > 0:
+                startms = startms - (startms % TEN_MINUTES_IN_MILLISECONDS) + TEN_MINUTES_IN_MILLISECONDS
+
+            # Round down the end timestamp to the previous 10 minute window
+            endms = endms - (endms % TEN_MINUTES_IN_MILLISECONDS)
+
+            if startms >= endms:
+                raise ValueError(f'Error on rounding up {self.starttime_getter() * 1000} and rounding down '
+                                 f'{self.endtime_getter() * 1000}. The start time, {startms}, '
+                                 f'should be less than the end time, {endms}.')
+
+        log.info(f'Original start time: {self.starttime_getter() * 1000}, original end time: '
+                 f'{self.endtime_getter() * 1000}. Rounded start time: {startms}, rounded end time: {endms}.')
         return 'kafka-audit-v2.py ' \
                f'--topicsfile {self.topics_file_choice.value} ' \
-               f'--startms {self.starttime_getter() * 1000} ' \
-               f'--endms {self.endtime_getter() * 1000}'
+               f'--startms {startms} ' \
+               f'--endms {endms}'
 
     def __str__(self):
         return f'{typename(self)}(topics_file_choice: {self.topics_file_choice})'

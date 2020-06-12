@@ -34,7 +34,7 @@ class BasicTests(KafkaAuditTestCaseBase):
             (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
              CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
-        sleep = Sleep(secs=60 * 15)
+        sleep = Sleep(secs=60 * 20)
 
         run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
 
