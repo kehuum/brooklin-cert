@@ -298,10 +298,10 @@ class KafkaErrorInducingTests(KafkaAuditTestCaseBase):
         self.doRunTest(perform_kafka_ple(self.testName, KafkaClusterChoice.DESTINATION))
 
     def test_restart_source_kafka_cluster(self):
-        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.SOURCE, 10))
+        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.SOURCE, 25))
 
     def test_restart_destination_kafka_cluster(self):
-        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.DESTINATION, 10))
+        self.doRunTest(restart_kafka_cluster(self.testName, KafkaClusterChoice.DESTINATION, 25))
 
 
 if __name__ == '__main__':
