@@ -11,8 +11,7 @@ from testlib.data import KafkaTopicFileChoice
 KafkaAuditInquiry = NamedTuple('KafkaAuditInquiry',
                                [('startms', int), ('endms', int), ('topics_file_choice', KafkaTopicFileChoice)])
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 TEN_MINUTES_IN_MILLISECONDS = 600000
 

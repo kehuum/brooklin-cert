@@ -7,7 +7,7 @@ from testlib.core.runner import TestRunnerBuilder
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import ListTopics, DeleteTopics
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 logging.getLogger('kafka').setLevel(logging.WARN)
 
 
