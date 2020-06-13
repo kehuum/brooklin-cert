@@ -110,7 +110,7 @@ class BasicTests(KafkaAuditTestCaseBase):
                                               metadata=['system.reuseExistingDestination:false'], name=datastream_name,
                                               cluster=BrooklinClusterChoice.EXPERIMENT))
 
-        sleep_after_update = Sleep(secs=60 * 10)
+        sleep_after_update = Sleep(secs=60 * 20)
 
         list_topics_destination_after_update = \
             (ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=control_topic_prefixes),
