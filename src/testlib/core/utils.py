@@ -53,18 +53,23 @@ def retry(tries, delay=3, backoff=1, predicate: Callable[[Any], bool] = lambda x
             nonlocal tries
             nonlocal delay
 
+            initial_tries = tries
+
             result = None
             while tries > 0:
                 result = f(*args, **kwargs)
                 if predicate(result):
-                    return result  # function succeeded
+                    break  # function succeeded
                 tries -= 1  # consume an attempt
                 if tries > 0:
                     log.info(f'Retrying {f.__name__} in {delay} seconds — {tries} attempt(s) remaining')
                     time.sleep(delay)  # wait...
                     delay *= backoff  # make future wait longer (unless backoff = 1)
-            else:
-                return result
+            # Reset tries regardless of success or failure so if the
+            # decorated function is called again, we would try calling
+            # it for a new @tries number of times
+            tries = initial_tries
+            return result
 
         return f_retry  # true decorator -> decorated function
 
