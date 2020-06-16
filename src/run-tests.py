@@ -17,8 +17,8 @@ from testlib.likafka.audit import AddDeferredKafkaAuditInquiry
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.testhelpers import kill_kafka_broker, stop_kafka_broker, perform_kafka_ple, \
     restart_kafka_cluster
-from testlib.likafka.teststeps import ListTopics, ValidateSourceAndDestinationTopicsMatch, CreateSourceTopics, \
-    ValidateDestinationTopicsExist, ProduceToSourceTopics, ConsumeFromDestinationTopics
+from testlib.likafka.teststeps import ListTopics, ValidateSourceAndDestinationTopicsMatch, CreateTopics, \
+    ValidateDestinationTopicsExist, ProduceToSourceTopics, ConsumeFromDestinationTopics, CreateSourceTopicsOnDestination
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 logging.getLogger('kafka').setLevel(logging.WARN)
@@ -106,6 +106,9 @@ class BasicTests(KafkaAuditTestCaseBase):
                              CreateDatastream(name=datastream_name,
                                               datastream_config=DatastreamConfigChoice.EXPERIMENT))
 
+        create_destination_topics = (CreateSourceTopicsOnDestination(topics_getter=list_topics_source[0].get_topics),
+                                     CreateSourceTopicsOnDestination(topics_getter=list_topics_source[1].get_topics))
+
         sleep_before_update = Sleep(secs=60 * 10)
 
         update_datastream = (UpdateDatastream(whitelist='^(^voyager-api.*$)|(^seas-.*$)',
@@ -153,10 +156,16 @@ class BasicTests(KafkaAuditTestCaseBase):
                                           endtime_getter=sleep_after_update.end_time,
                                           topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER_SEAS))
 
-        runner = TestRunnerBuilder(test_name=datastream_name) \
+        builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*list_topics_source) \
-            .add_parallel(*create_datastream) \
-            .add_sequential(sleep_before_update) \
+            .add_parallel(*create_datastream)
+
+        # If passthrough is enabled but auto-topic creation isn't, we need to manually create topics on the destination
+        # Kafka cluster. This mimics what we do in actual PROD clusters with this configuration.
+        if DatastreamConfigChoice.CONTROL.value.passthrough and not DatastreamConfigChoice.CONTROL.value.topic_create:
+            builder.add_parallel(*create_destination_topics)
+
+        runner = builder.add_sequential(sleep_before_update) \
             .add_parallel(*update_datastream) \
             .add_sequential(sleep_after_update) \
             .add_parallel(*list_topics_destination_after_update) \
@@ -186,8 +195,15 @@ class BasicTests(KafkaAuditTestCaseBase):
                                                             name=datastream_name,
                                                             cluster=BrooklinClusterChoice.EXPERIMENT))
 
-        create_control_topics = (CreateSourceTopics(topics=control_topics, delay_seconds=60 * 2),
-                                 CreateSourceTopics(topics=experiment_topics, delay_seconds=60 * 2))
+        create_source_topics = (CreateTopics(topics=control_topics, cluster=KafkaClusterChoice.SOURCE,
+                                             delay_seconds=60 * 2),
+                                CreateTopics(topics=experiment_topics, cluster=KafkaClusterChoice.SOURCE,
+                                             delay_seconds=60 * 2))
+
+        create_destination_topics = (CreateTopics(topics=control_topics, cluster=KafkaClusterChoice.DESTINATION,
+                                                  delay_seconds=0),
+                                     CreateTopics(topics=experiment_topics, cluster=KafkaClusterChoice.DESTINATION,
+                                                  delay_seconds=0))
 
         wait_for_topic_on_destination = (ValidateDestinationTopicsExist(topics=control_topics),
                                          ValidateDestinationTopicsExist(topics=experiment_topics))
@@ -225,18 +241,30 @@ class BasicTests(KafkaAuditTestCaseBase):
             .add_parallel(*create_datastream) \
             .add_sequential(sleep_before_topics_creation)
 
-        if not DatastreamConfigChoice.CONTROL.value.topic_create:
+        # If auto-topic creation is turned off and passthough is disabled, we rely on Kafka to create the topics,
+        # which only happen when we produce to the destination topic. To ensure we get all the data in the topics,
+        # we need set the datastream's auto.offset.reset policy to 'earliest'.
+        if not DatastreamConfigChoice.CONTROL.value.topic_create and not \
+                DatastreamConfigChoice.CONTROL.value.passthrough:
             builder.add_parallel(*update_datastream_before_create)
 
-        builder.add_parallel(*create_control_topics)
+        builder.add_parallel(*create_source_topics)
 
+        # If passthrough is enabled but auto-topic creation isn't, we need to manually create topics on the destination
+        # Kafka cluster. This mimics what we do in actual clusters with this configuration.
+        if DatastreamConfigChoice.CONTROL.value.passthrough and not DatastreamConfigChoice.CONTROL.value.topic_create:
+            builder.add_parallel(*create_destination_topics) \
+                .add_sequential(*wait_for_topic_on_destination)
+
+        # If auto-topic creation is turned on, we wait for the destination topics to be created before we produce data.
         if DatastreamConfigChoice.CONTROL.value.topic_create:
             builder.add_sequential(*wait_for_topic_on_destination)
 
         builder.add_parallel(*produce_traffic) \
             .add_sequential(sleep_after_producing_traffic)
 
-        if not DatastreamConfigChoice.CONTROL.value.topic_create:
+        if not DatastreamConfigChoice.CONTROL.value.topic_create and not \
+                DatastreamConfigChoice.CONTROL.value.passthrough:
             builder.add_sequential(*wait_for_topic_on_destination) \
                 .add_parallel(*update_datastream_after_produce)
 

@@ -201,19 +201,21 @@ class ValidateDestinationTopicsExist(TestStep):
         return self.topics.issubset(all_topics)
 
 
-class CreateSourceTopic(TestStep):
-    """Test step for creating a topic in the source Kafka cluster"""
+class CreateTopic(TestStep):
+    """Test step for creating a topic in a Kafka cluster"""
 
-    def __init__(self, topic_name, partitions=8, replication_factor=3, topic_configs=None,
+    def __init__(self, topic_name, cluster: KafkaClusterChoice, partitions=8, replication_factor=3, topic_configs=None,
                  ssl_certfile=DEFAULT_SSL_CERTFILE):
         super().__init__()
         if not topic_name:
             raise ValueError(f'Invalid topic name: {topic_name}')
+        if not cluster:
+            raise ValueError(f'Invalid cluster type: {cluster}')
         if not ssl_certfile:
             raise ValueError(f'Cert file must be specified')
 
-        self.cluster = KafkaClusterChoice.SOURCE.value
         self.topic_name = topic_name
+        self.cluster = cluster
         self.partitions = partitions
         self.replication_factor = replication_factor
         self.topic_configs = topic_configs
@@ -221,7 +223,7 @@ class CreateSourceTopic(TestStep):
         self.client = None
 
     def run_test(self):
-        self.client = AdminClient([self.cluster.bootstrap_servers], self.ssl_certfile)
+        self.client = AdminClient([self.cluster.value.bootstrap_servers], self.ssl_certfile)
         self.client.create_topic(self.topic_name, self.partitions, self.replication_factor, self.topic_configs)
 
     def cleanup(self):
@@ -229,24 +231,61 @@ class CreateSourceTopic(TestStep):
 
     def __str__(self):
         return f'{typename(self)}(topic: {self.topic_name}, ' \
+               f'cluster: {self.cluster}, ' \
                f'partitions: {self.partitions}, ' \
                f'replication factor: {self.replication_factor})'
 
 
-class CreateSourceTopics(TestStep):
+class CreateSourceTopicsOnDestination(TestStep):
+    """Test step to create topics on the destination Kafka cluster based on a list of topics in the source cluster.
+    Preserves the number of TopicPartitions as the source topic."""
+
+    def __init__(self, topics_getter, ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_cafile=DEFAULT_SSL_CAFILE):
+        super().__init__()
+        if not topics_getter:
+            raise ValueError(f'Invalid topic topics getter: {topics_getter}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_cafile:
+            raise ValueError(f'CA file must be specified')
+
+        self.topics_getter = topics_getter
+        self.ssl_certfile = ssl_certfile
+        self.ssl_cafile = ssl_cafile
+
+    def run_test(self):
+        consumer = KafkaConsumer(group_id=f'{uuid.uuid4()}',
+                                 auto_offset_reset='earliest',
+                                 bootstrap_servers=[KafkaClusterChoice.SOURCE.value.bootstrap_servers],
+                                 security_protocol="SSL",
+                                 ssl_check_hostname=False,
+                                 ssl_cafile=self.ssl_cafile,
+                                 ssl_certfile=self.ssl_certfile,
+                                 ssl_keyfile=self.ssl_certfile)
+
+        topics = self.topics_getter()
+        for topic in topics:
+            partitions = consumer.partitions_for_topic(topic=topic)
+            CreateTopic(topic_name=topic, partitions=len(partitions), cluster=KafkaClusterChoice.DESTINATION).run()
+
+
+class CreateTopics(TestStep):
     """Test step for creating a list of topics in batches with optional delays"""
 
-    def __init__(self, topics, batch_size=1, delay_seconds=120):
+    def __init__(self, topics, cluster: KafkaClusterChoice, batch_size=1, delay_seconds=120):
         super().__init__()
 
         if not topics:
             raise ValueError(f'Invalid topic list: {topics}')
+        if not cluster:
+            raise ValueError(f'Invalid cluster type: {cluster}')
         if batch_size < 1:
             raise ValueError(f'Batch size must be >= 1, invalid batch size: {batch_size}')
         if delay_seconds < 0:
             raise ValueError(f'Delay in seconds must be >= 0, invalid delay: {delay_seconds}')
 
         self.topics = topics
+        self.cluster = cluster
         self.batch_size = batch_size
         self.delay_seconds = delay_seconds
 
@@ -255,13 +294,13 @@ class CreateSourceTopics(TestStep):
             topic_batch = self.topics[i:i + self.batch_size]
 
             for topic in topic_batch:
-                CreateSourceTopic(topic_name=topic).run()
+                CreateTopic(topic_name=topic, cluster=self.cluster).run()
 
             if self.delay_seconds > 0:
                 Sleep(secs=self.delay_seconds).run()
 
     def cleanup(self):
-        DeleteTopics(topics_getter=self.get_topics, cluster=KafkaClusterChoice.SOURCE).run()
+        DeleteTopics(topics_getter=self.get_topics, cluster=self.cluster).run()
 
     def get_topics(self):
         return self.topics
