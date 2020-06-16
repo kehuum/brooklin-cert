@@ -60,7 +60,7 @@ class EkgClient(object):
         return analysis_id, self._get_analysis_status(analysis_id, ssl_cafile)
 
     def _submit_analysis_request(self, request_body, ssl_cafile):
-        err, response = self._submit_request(request_body, ssl_cafile)
+        response, err = self._submit_request(request_body, ssl_cafile)
         if err is not None:
             raise err
         response_json: dict = EkgClient._get_response_json(response)
@@ -70,7 +70,7 @@ class EkgClient(object):
                                        f'contain analysis ID:\n{response_json}')
         return int(analysis_id)
 
-    @retry(tries=10, delay=20, predicate=lambda result: result[0] is None)
+    @retry(tries=10, delay=20, predicate=lambda result: result[1] is None)
     def _submit_request(self, request_body, ssl_cafile):
         try:
             response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body,
@@ -78,9 +78,9 @@ class EkgClient(object):
                                     error_message='Failed to submit analysis request to EKG server')
         except OperationFailedError as err:
             log.exception('Submitting analysis report to EKG failed')
-            return err, None
+            return None, err
         else:
-            return None, response
+            return response, None
 
     @retry(tries=16, delay=60, predicate=lambda status: status in {ANALYSIS_PASS, ANALYSIS_FAIL})
     def _get_analysis_status(self, analysis_id, ssl_cafile):

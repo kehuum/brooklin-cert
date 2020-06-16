@@ -60,7 +60,10 @@ class LidClient(object):
         self.ssl_cafile = ssl_cafile
 
     def restart(self, product, fabric, product_tag, host_concurrency):
-        request_id = self._submit_restart_request(product, fabric, product_tag, host_concurrency)
+        request_id, err = self._submit_restart_request(product, fabric, product_tag, host_concurrency)
+        if err is not None:
+            raise err
+
         deployment_request: DeploymentRequest = self._get_deployment_request(request_id, fabric)
 
         if not deployment_request.is_successful:
@@ -74,11 +77,20 @@ class LidClient(object):
         request_headers = {'X-RestLi-Protocol-Version': '2.0.0', 'X-RestLi-Method': 'create'}
         request_body = LidClient._get_restart_request_body(request_id, product, fabric, product_tag, host_concurrency)
         log.info(f'Submitting restart request to LID server. Request ID: {request_id}')
-        send_request(send_fn=lambda: requests.post(url=LidClient._lid_deployments_url(fabric), json=request_body,
-                                                   headers=request_headers, verify=self.ssl_cafile,
-                                                   cert=self.ssl_certfile),
-                     error_message='Failed to submit restart request to LID server')
-        return request_id
+        return self._send_restart_request(request_id=request_id, fabric=fabric, request_body=request_body,
+                                          request_headers=request_headers)
+
+    @retry(tries=12, delay=60, predicate=lambda result: result[1] is None)
+    def _send_restart_request(self, request_id, fabric, request_body, request_headers):
+        try:
+            send_request(send_fn=lambda: requests.post(url=LidClient._lid_deployments_url(fabric), json=request_body,
+                                                       headers=request_headers, verify=self.ssl_cafile,
+                                                       cert=self.ssl_certfile),
+                         error_message='Failed to submit restart request to LID server')
+        except OperationFailedError as err:
+            return request_id, err
+        else:
+            return request_id, None
 
     @retry(tries=20, delay=60 * 3,
            predicate=lambda deployment_request: deployment_request.is_successful or deployment_request.is_failed)

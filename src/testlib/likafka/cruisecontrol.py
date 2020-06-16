@@ -2,7 +2,7 @@ import logging
 import re
 import requests
 
-from testlib.core.utils import send_request, retry
+from testlib.core.utils import send_request, retry, OperationFailedError
 
 log = logging.getLogger(__name__)
 
@@ -35,12 +35,24 @@ class CruiseControlClient(object):
             ('concurrent_leader_movements', '500'),
             ('reason', 'DATAPIPES-18111'),
         )
-        response = send_request(send_fn=lambda: requests.post(url=self.cc_endpoint, params=params, headers=headers),
-                                error_message=f'Failed to call PLE on cruise control endpoint {self.cc_endpoint}',
-                                allowed_status_codes=self.EXPECTED_RESPONSE_CODES)
+        response, err = self._send_ple_request(headers=headers, params=params)
+        if err is not None:
+            raise err
+
         log.info(f'Response status: {response.status_code}, response received: {response.text}')
         is_final = CruiseControlClient.is_response_final(response)
         return is_final, response.headers.get(self.USER_TASK_ID_HEADER)
+
+    @retry(tries=12, delay=60, predicate=lambda result: result[1] is None)
+    def _send_ple_request(self, headers, params):
+        try:
+            response = send_request(send_fn=lambda: requests.post(url=self.cc_endpoint, params=params, headers=headers),
+                                    error_message=f'Failed to call PLE on cruise control endpoint {self.cc_endpoint}',
+                                    allowed_status_codes=self.EXPECTED_RESPONSE_CODES)
+        except OperationFailedError as err:
+            return None, err
+        else:
+            return response, None
 
     @staticmethod
     def is_progress_key_absent(response: requests.Response):
