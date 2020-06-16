@@ -89,8 +89,13 @@ class BasicTests(KafkaAuditTestCaseBase):
         self.doRunTest(runner)
 
     def test_update_datastream_whitelist(self):
-        control_topic_prefixes = ['voyager-api', 'seas-']
-        experiment_topic_prefixes = ['experiment-voyager-api', 'experiment-seas-']
+        # The final whitelist in this test will consist of voyager topics and seas topics. The whitelist update will
+        # add the seas topics. On the other hand, the voyager topics should already exist on the destination Kafka
+        # cluster, whereas the seas topics are to be added as part of the updated whitelist and these should be created
+        # on the destination as part of the test. Thus we only need to validate that the seas topics are indeed created
+        # on the destination side.
+        control_topic_prefixes = ['seas-']
+        experiment_topic_prefixes = ['experiment-seas-']
 
         list_topics_source = \
             (ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=control_topic_prefixes),
