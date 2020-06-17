@@ -10,7 +10,7 @@ from testlib.brooklin.testhelpers import kill_start_brooklin_host, stop_start_br
 from testlib.brooklin.teststeps import CreateDatastream, BrooklinClusterChoice, RestartDatastream, UpdateDatastream
 from testlib.core.loader import KafkaAuditTestCaseBase, CustomTestLoader
 from testlib.core.runner import TestRunnerBuilder
-from testlib.core.teststeps import Sleep
+from testlib.core.teststeps import Sleep, SleepUntilNthMinute
 from testlib.data import KafkaTopicFileChoice
 from testlib.ekg import RunEkgAnalysis
 from testlib.likafka.audit import AddDeferredKafkaAuditInquiry
@@ -29,6 +29,8 @@ class BasicTests(KafkaAuditTestCaseBase):
     """All basic certification tests"""
 
     def test_basic(self):
+        sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
+
         datastream_name = 'test_basic'
         create_datastream = \
             (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
@@ -36,25 +38,31 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         sleep = Sleep(secs=60 * 20)
 
-        run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time, endtime_getter=sleep.end_time)
+        sleep_until_test_end = SleepUntilNthMinute(nth_minute=0)
+
+        run_ekg = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                 endtime_getter=sleep_until_test_end.end_time)
 
         kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[0].end_time,
-                                                    endtime_getter=sleep.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[1].end_time,
-                                                    endtime_getter=sleep.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder('test_basic') \
+            .add_sequential(sleep_until_test_start) \
             .add_parallel(*create_datastream) \
-            .add_sequential(sleep, run_ekg, *kafka_audit) \
+            .add_sequential(sleep, sleep_until_test_end, run_ekg, *kafka_audit) \
             .build()
 
         self.doRunTest(runner)
 
     def test_restart_datastream(self):
+        sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
+
         datastream_name = 'test-restart-datastream'
         create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
                              CreateDatastream(name=datastream_name,
@@ -67,23 +75,26 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         sleep_after_restart = Sleep(secs=60 * 10)
 
+        sleep_until_test_end = SleepUntilNthMinute(nth_minute=0)
+
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_restart.end_time)
+                                      endtime_getter=sleep_until_test_end.end_time)
 
         kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[0].end_time,
-                                                    endtime_getter=sleep_after_restart.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[1].end_time,
-                                                    endtime_getter=sleep_after_restart.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         runner = TestRunnerBuilder(test_name=datastream_name) \
+            .add_sequential(sleep_until_test_start) \
             .add_parallel(*create_datastream) \
             .add_sequential(sleep_before_restart) \
             .add_parallel(*restart_datastream) \
-            .add_sequential(sleep_after_restart, ekg_analysis, *kafka_audit) \
+            .add_sequential(sleep_after_restart, sleep_until_test_end, ekg_analysis, *kafka_audit) \
             .build()
 
         self.doRunTest(runner)
@@ -100,6 +111,8 @@ class BasicTests(KafkaAuditTestCaseBase):
         list_topics_source = \
             (ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=control_topic_prefixes),
              ListTopics(cluster=KafkaClusterChoice.SOURCE, topic_prefixes_filter=experiment_topic_prefixes))
+
+        sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
 
         datastream_name = 'test_update_datastream_whitelist'
         create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
@@ -120,6 +133,8 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         sleep_after_update = Sleep(secs=60 * 20)
 
+        sleep_until_test_end = SleepUntilNthMinute(nth_minute=0)
+
         list_topics_destination_after_update = \
             (ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=control_topic_prefixes),
              ListTopics(cluster=KafkaClusterChoice.DESTINATION, topic_prefixes_filter=experiment_topic_prefixes))
@@ -135,29 +150,30 @@ class BasicTests(KafkaAuditTestCaseBase):
                  include_all_topics=create_datastream[1].topic_create))
 
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_update.end_time)
+                                      endtime_getter=sleep_until_test_end.end_time)
 
         kafka_audit_basic = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                           starttime_getter=create_datastream[0].end_time,
-                                                          endtime_getter=sleep_after_update.end_time,
+                                                          endtime_getter=sleep_until_test_end.end_time,
                                                           topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                              AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                           starttime_getter=create_datastream[1].end_time,
-                                                          endtime_getter=sleep_after_update.end_time,
+                                                          endtime_getter=sleep_until_test_end.end_time,
                                                           topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         kafka_audit_new_topics = \
             (AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                           starttime_getter=update_datastream[0].end_time,
-                                          endtime_getter=sleep_after_update.end_time,
+                                          endtime_getter=sleep_until_test_end.end_time,
                                           topics_file_choice=KafkaTopicFileChoice.VOYAGER_SEAS),
              AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                           starttime_getter=update_datastream[1].end_time,
-                                          endtime_getter=sleep_after_update.end_time,
+                                          endtime_getter=sleep_until_test_end.end_time,
                                           topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER_SEAS))
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
             .add_parallel(*list_topics_source) \
+            .add_sequential(sleep_until_test_start) \
             .add_parallel(*create_datastream)
 
         # If passthrough is enabled but auto-topic creation isn't, we need to manually create topics on the destination
@@ -167,7 +183,7 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         runner = builder.add_sequential(sleep_before_update) \
             .add_parallel(*update_datastream) \
-            .add_sequential(sleep_after_update) \
+            .add_sequential(sleep_after_update, sleep_until_test_end) \
             .add_parallel(*list_topics_destination_after_update) \
             .add_parallel(*validate_topics_after_update) \
             .add_sequential(ekg_analysis, *kafka_audit_basic, *kafka_audit_new_topics) \
@@ -178,6 +194,8 @@ class BasicTests(KafkaAuditTestCaseBase):
     def test_multiple_topic_creation_with_traffic(self):
         control_topics = [f'voyager-api-bmm-certification-test-{i}' for i in range(10)]
         experiment_topics = [f'experiment-voyager-api-bmm-certification-test-{i}' for i in range(10)]
+
+        sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
 
         datastream_name = 'test_multiple_topic_creation_with_traffic'
         create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
@@ -222,22 +240,25 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         sleep_after_producing_traffic = Sleep(secs=60 * 5)
 
+        sleep_until_test_end = SleepUntilNthMinute(nth_minute=0)
+
         consume_records = (ConsumeFromDestinationTopics(topics=control_topics, num_records=10000),
                            ConsumeFromDestinationTopics(topics=experiment_topics, num_records=10000))
 
         ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
-                                      endtime_getter=sleep_after_producing_traffic.end_time)
+                                      endtime_getter=sleep_until_test_end.end_time)
 
         kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[0].end_time,
-                                                    endtime_getter=sleep_after_producing_traffic.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.VOYAGER),
                        AddDeferredKafkaAuditInquiry(test_name=self.testName,
                                                     starttime_getter=create_datastream[1].end_time,
-                                                    endtime_getter=sleep_after_producing_traffic.end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
                                                     topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
 
         builder = TestRunnerBuilder(test_name=datastream_name) \
+            .add_sequential(sleep_until_test_start) \
             .add_parallel(*create_datastream) \
             .add_sequential(sleep_before_topics_creation)
 
@@ -261,7 +282,7 @@ class BasicTests(KafkaAuditTestCaseBase):
             builder.add_sequential(*wait_for_topic_on_destination)
 
         builder.add_parallel(*produce_traffic) \
-            .add_sequential(sleep_after_producing_traffic)
+            .add_sequential(sleep_after_producing_traffic, sleep_until_test_end)
 
         if not DatastreamConfigChoice.CONTROL.value.topic_create and not \
                 DatastreamConfigChoice.CONTROL.value.passthrough:
