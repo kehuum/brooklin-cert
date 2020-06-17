@@ -127,6 +127,36 @@ class Sleep(TestStep):
         return f'{typename(self)}(secs: {self._secs})'
 
 
+class SleepUntilNthMinute(TestStep):
+    """Test step to sleep until the next nth minute after the ten minute boundary. For example, if the nth minute is 7,
+    and current time is 10:18, this test step will sleep until 10:27."""
+
+    TEN_MINUTES_IN_SECONDS = 600
+
+    def __init__(self, nth_minute):
+        super().__init__()
+        if nth_minute < 0 or nth_minute > 9:
+            raise ValueError(f'nth_minute must be in the range of 0 to 9 (inclusive) but was {nth_minute}')
+        self._nth_minute = nth_minute
+
+    def run_test(self):
+        minute_in_s = self._nth_minute * 60
+        current_time_s = int(time.time())
+        round_down_ten_s = current_time_s - (current_time_s % self.TEN_MINUTES_IN_SECONDS)
+        round_up_ten_s = current_time_s - (current_time_s % self.TEN_MINUTES_IN_SECONDS) + self.TEN_MINUTES_IN_SECONDS
+        elapsed_since_round_down_ten_s = current_time_s - round_down_ten_s
+
+        if elapsed_since_round_down_ten_s < minute_in_s:
+            time_to_sleep_s = minute_in_s - elapsed_since_round_down_ten_s
+        else:
+            time_to_sleep_s = (round_up_ten_s + minute_in_s) - current_time_s
+
+        Sleep(secs=time_to_sleep_s).run()
+
+    def __str__(self):
+        return f'{typename(self)}(minute: {self._nth_minute})'
+
+
 class RestartCluster(TestStep):
     """Test step to restart a Kafka/Brooklin cluster"""
 
