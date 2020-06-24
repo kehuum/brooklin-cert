@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument('--output', help='Path to store logs and results')
     parser.add_argument('--topicsfile', help='Path to input topics file, with a single topic on each line')
     parser.add_argument('--threshold', '-t', type=int, help='Percentage threshold at which to fail audit', default=3)
+    parser.add_argument('--pertopicvalidation', action='store_true')
 
     required_arguments_group = parser.add_argument_group('required arguments')
     required_arguments_group.add_argument('--startms', '-s', type=int, required=True,
@@ -57,13 +58,13 @@ def get_topic_list_from_file(topics_file):
 def get_audit_counts(topic, start_ms, end_ms):
     counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=brooklin-cert'
     url = BASE_URL + counts_api
-    log.debug('Querying counts for topic {0} with URL: "{1}"'.format(topic, url))
+    log.debug(f'Querying counts for topic {topic} with URL: "{url}"')
     # Send the request with a connect timeout of 10 seconds and read timeout of 10 seconds to prevent waiting too
     # long to receive a response
     r = requests.get(url, timeout=(10, 10))
     if r.status_code == requests.codes.ok:
         return r.json()
-    print('Error in processing topic %s' % topic)
+    print(f'Error in processing topic {topic}')
     raise ValueError(f'Error in processing topic {topic}, status code: {r.status_code}')
 
 
@@ -131,11 +132,12 @@ def print_summary_table(topic_counts):
     print(footer)
 
 
-def aggregate_and_verify_topic_counts(topic_counts, threshold):
+def aggregate_and_verify_topic_counts(topic_counts, threshold, per_topic_validation):
     total_prod_lva1 = 0
     total_prod_lor1 = 0
     lva1_topic_missing = 0
     lor1_topic_missing = 0
+    topics_outside_threshold = 0
 
     for topic in topic_counts:
         lva1count = 0
@@ -161,17 +163,32 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold):
             total_prod_lva1 += lva1count
             total_prod_lor1 += lor1count
 
-    value = float(total_prod_lor1 / float(total_prod_lva1 or 1) * 100)
-    print('total_prod_lor1: %s, total_prod_lva1: %s, ratio: %s %%' % (total_prod_lor1, total_prod_lva1, value))
+            # Calculate whether the topic's counts are within the threshold
+            topic_value = lor1count / max(lva1count, 1) * 100
+            outside_threshold = topic_value < 100 - threshold or topic_value > 100 + threshold
+            if outside_threshold:
+                topics_outside_threshold += 1
+
+    value = total_prod_lor1 / max(total_prod_lva1, 1) * 100
+    print(f'total_prod_lor1: {total_prod_lor1}, total_prod_lva1: {total_prod_lva1}, ratio: {value} %')
     if lva1_topic_missing or lor1_topic_missing:
-        log.info('Topic missing count: lva1: %s, lor1: %s' % (lva1_topic_missing, lor1_topic_missing))
-    return float(100 - threshold) <= value < float(100 + threshold)
+        log.warning(f'Topic missing count: lva1: {lva1_topic_missing}, lor1: {lor1_topic_missing}')
+    if topics_outside_threshold:
+        log.warning(f'Some topics counts are outside the allowed threshold ({threshold}): {topics_outside_threshold}')
+
+    aggregate_within_threshold = 100 - threshold <= value < 100 + threshold
+    if per_topic_validation:
+        log.info(f'Topics outside threshold: {topics_outside_threshold}, aggregate within threshold: '
+                 f'{aggregate_within_threshold}')
+        return topics_outside_threshold == 0 and aggregate_within_threshold
+    return aggregate_within_threshold
 
 
 @retry(tries=16, delay=2 * 60)
 def run_audit(args):
-    log.info('Checking audit FROM "{0}" TO "{1}"'.format(
-        time.ctime(args.startms / 1000), time.ctime(args.endms / 1000)))
+    startms_ctime = time.ctime(args.startms / 1000)
+    endms_ctime = time.ctime(args.endms / 1000)
+    log.info(f'Checking audit FROM "{startms_ctime}" TO "{endms_ctime}"')
     if not args.topics:
         topics = get_all_topics()
         topic_counts_map = find_cert_tier_counts(topics, args.startms, args.endms)
@@ -179,10 +196,11 @@ def run_audit(args):
         topic_counts_map = find_cert_tier_counts(args.topics, args.startms, args.endms)
 
     print_summary_table(topic_counts_map)
-    print('\nCounts were from beginTimestamp={0}({1}) to endTimestamp={2}({3})'.format(
-        args.startms, time.ctime(args.startms / 1000), args.endms, time.ctime(args.endms / 1000)))
-    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.threshold)
-    print('Aggregate audit counting pass threshold {}, passed: {}'.format(args.threshold, is_pass))
+    print(f'\nCounts were from beginTimestamp={args.startms}({startms_ctime}) to '
+          f'endTimestamp={args.endms}({endms_ctime})')
+    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.threshold, args.pertopicvalidation)
+    audit_level = "Per-topic" if args.pertopicvalidation else "Aggregate"
+    print(f'{audit_level} audit counting pass threshold: {args.threshold}, passed: {is_pass}')
     return is_pass
 
 

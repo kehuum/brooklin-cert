@@ -145,7 +145,7 @@ class RunKafkaAudit(RunPythonCommand):
     interval during which the test may not have been running."""
 
     def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice,
-                 round_timestamps=True):
+                 round_timestamps=True, per_topic_validation=False):
         super().__init__()
         if not topics_file_choice:
             raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
@@ -157,6 +157,7 @@ class RunKafkaAudit(RunPythonCommand):
         self.starttime_getter = starttime_getter
         self.endtime_getter = endtime_getter
         self.round_timestamps = round_timestamps
+        self.per_topic_validation = per_topic_validation
 
     @property
     def main_command(self):
@@ -177,10 +178,13 @@ class RunKafkaAudit(RunPythonCommand):
 
         log.info(f'Original start time: {self.starttime_getter() * 1000}, original end time: '
                  f'{self.endtime_getter() * 1000}. Rounded start time: {startms}, rounded end time: {endms}.')
-        return 'kafka-audit-v2.py ' \
-               f'--topicsfile {self.topics_file_choice.value} ' \
-               f'--startms {startms} ' \
-               f'--endms {endms}'
+        audit_command = 'kafka-audit-v2.py ' \
+                        f'--topicsfile {self.topics_file_choice.value} ' \
+                        f'--startms {startms} ' \
+                        f'--endms {endms}'
+        if self.per_topic_validation:
+            audit_command += ' --pertopicvalidation'
+        return audit_command
 
     def __str__(self):
         return f'{typename(self)}(topics_file_choice: {self.topics_file_choice})'
