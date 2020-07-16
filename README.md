@@ -34,7 +34,7 @@ This repository is intended for hosting Brooklin test automation code.
 
 4. Clone the repo 
    ```shell script
-   git clone git@github.com:ahmedahamid/brooklin-certification.git
+   git clone git@github.com:linkedin/brooklin-certification.git
    ```
 
 5. Open the repo using IntelliJ
