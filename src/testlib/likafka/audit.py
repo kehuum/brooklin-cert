@@ -145,7 +145,7 @@ class RunKafkaAudit(RunPythonCommand):
     interval during which the test may not have been running."""
 
     def __init__(self, starttime_getter, endtime_getter, topics_file_choice: KafkaTopicFileChoice,
-                 round_timestamps=True, per_topic_validation=False):
+                 round_timestamps=True, per_topic_validation=True):
         super().__init__()
         if not topics_file_choice:
             raise ValueError(f'Invalid topics file choice: {topics_file_choice}')
