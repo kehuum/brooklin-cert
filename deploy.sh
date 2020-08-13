@@ -33,7 +33,7 @@ INSTALL_CONFIG_SCRIPT="install-config.sh"
 INSTALL_DRIVER_SCRIPT="install-driver.sh"
 SCRIPT_NAME=$(basename "$0")
 SOURCES_DIR=src
-TEST_DRIVER_HOST="lor1-app26891.prod.linkedin.com"
+TEST_DRIVER_HOST="lor1-app36225.prod.linkedin.com"
 CONFIG_PATH=".."
 
 function usage {
