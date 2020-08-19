@@ -263,10 +263,11 @@ class BasicTests(KafkaAuditTestCaseBase):
             .add_sequential(sleep_before_topics_creation)
 
         # If auto-topic creation is turned off and passthough is disabled, we rely on Kafka to create the topics,
-        # which only happen when we produce to the destination topic. To ensure we get all the data in the topics,
-        # we need set the datastream's auto.offset.reset policy to 'earliest'.
-        if not DatastreamConfigChoice.CONTROL.value.topic_create and not \
-                DatastreamConfigChoice.CONTROL.value.passthrough:
+        # which only happen when we produce to the destination topic. Even with the passthrough case, there could be
+        # some rebalances which race with when we start producing, which can lead to accidentally skipping some events
+        # if we haven't committed any checkpoints. To ensure we get all the data in the topics, we need set the
+        # datastream's auto.offset.reset policy to 'earliest'.
+        if not DatastreamConfigChoice.CONTROL.value.topic_create:
             builder.add_parallel(*update_datastream_before_create)
 
         builder.add_parallel(*create_source_topics)
@@ -286,8 +287,10 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         if not DatastreamConfigChoice.CONTROL.value.topic_create and not \
                 DatastreamConfigChoice.CONTROL.value.passthrough:
-            builder.add_sequential(*wait_for_topic_on_destination) \
-                .add_parallel(*update_datastream_after_produce)
+            builder.add_sequential(*wait_for_topic_on_destination)
+
+        if not DatastreamConfigChoice.CONTROL.value.topic_create:
+            builder.add_parallel(*update_datastream_after_produce)
 
         runner = builder.add_parallel(*consume_records) \
             .add_sequential(ekg_analysis, *kafka_audit) \
