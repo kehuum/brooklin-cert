@@ -21,7 +21,7 @@ class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
     def __init__(self, datastream_config: DatastreamConfigChoice, name='basic-mirroring-datastream',
-                 cert=PKCS12_SSL_CERTFILE):
+                 offset_reset=None, cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not datastream_config:
             raise ValueError(f'Invalid datastream creation config: {datastream_config}')
@@ -29,6 +29,8 @@ class CreateDatastream(RunPythonCommand):
             raise ValueError(f'Invalid name: {name}')
         if not cert:
             raise ValueError(f'Invalid cert: {cert}')
+        if offset_reset and offset_reset != 'earliest' and offset_reset != 'latest':
+            raise ValueError(f'Invalid offset reset: {offset_reset}')
 
         self.datastream_config = datastream_config
         self.cluster = datastream_config.value.cluster.value
@@ -39,6 +41,7 @@ class CreateDatastream(RunPythonCommand):
         self.partition_managed = datastream_config.value.partition_managed
         self.whitelist = datastream_config.value.whitelist
         self.name = name
+        self.offset_reset = offset_reset
         self.cert = cert
 
     @property
@@ -53,6 +56,8 @@ class CreateDatastream(RunPythonCommand):
                   f'--dcd {KafkaClusterChoice.DESTINATION.value.bootstrap_servers} ' \
                   f'--applications brooklin-service --metadata group.id:{uuid.uuid4()} '
 
+        if self.offset_reset:
+            command += f' --offsetreset {self.offset_reset}'
         if self.topic_create:
             command += ' --topiccreate'
         if self.identity:

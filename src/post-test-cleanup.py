@@ -9,6 +9,7 @@ from testlib.likafka.teststeps import ListTopics, DeleteTopics
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 logging.getLogger('kafka').setLevel(logging.WARN)
+logging.getLogger('kazoo').setLevel(logging.WARN)
 
 
 class PostTestCleanup(unittest.TestCase):
