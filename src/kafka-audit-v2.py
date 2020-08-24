@@ -29,7 +29,10 @@ def parse_args():
     parser.add_argument('--topics', type=csv, default=[], help='CSV of topics')
     parser.add_argument('--output', help='Path to store logs and results')
     parser.add_argument('--topicsfile', help='Path to input topics file, with a single topic on each line')
-    parser.add_argument('--threshold', '-t', type=int, help='Percentage threshold at which to fail audit', default=3)
+    parser.add_argument('--lowthreshold', '--lt', type=int, help='Percentage low threshold at which to fail audit',
+                        default=1)
+    parser.add_argument('--highthreshold', '--ht', type=int, help='Percentage high threshold at which to fail audit',
+                        default=3)
     parser.add_argument('--pertopicvalidation', action='store_true')
 
     required_arguments_group = parser.add_argument_group('required arguments')
@@ -132,7 +135,7 @@ def print_summary_table(topic_counts):
     print(footer)
 
 
-def aggregate_and_verify_topic_counts(topic_counts, threshold, per_topic_validation):
+def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshold, per_topic_validation):
     total_prod_lva1 = 0
     total_prod_lor1 = 0
     lva1_topic_missing = 0
@@ -165,7 +168,7 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold, per_topic_validat
 
             # Calculate whether the topic's counts are within the threshold
             topic_value = lor1count / max(lva1count, 1) * 100
-            outside_threshold = topic_value < 100 - threshold or topic_value > 100 + threshold
+            outside_threshold = topic_value < 100 - low_threshold or topic_value > 100 + high_threshold
             if outside_threshold:
                 topics_outside_threshold += 1
 
@@ -174,9 +177,10 @@ def aggregate_and_verify_topic_counts(topic_counts, threshold, per_topic_validat
     if lva1_topic_missing or lor1_topic_missing:
         log.warning(f'Topic missing count: lva1: {lva1_topic_missing}, lor1: {lor1_topic_missing}')
     if topics_outside_threshold:
-        log.warning(f'Some topics counts are outside the allowed threshold ({threshold}): {topics_outside_threshold}')
+        log.warning(f'Some topics counts are outside the allowed low threshold ({low_threshold}) or high threshold '
+                    f'({high_threshold}): {topics_outside_threshold}')
 
-    aggregate_within_threshold = 100 - threshold <= value < 100 + threshold
+    aggregate_within_threshold = 100 - low_threshold <= value < 100 + high_threshold
     if per_topic_validation:
         log.info(f'Topics outside threshold: {topics_outside_threshold}, aggregate within threshold: '
                  f'{aggregate_within_threshold}')
@@ -198,9 +202,11 @@ def run_audit(args):
     print_summary_table(topic_counts_map)
     print(f'\nCounts were from beginTimestamp={args.startms}({startms_ctime}) to '
           f'endTimestamp={args.endms}({endms_ctime})')
-    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.threshold, args.pertopicvalidation)
+    is_pass = aggregate_and_verify_topic_counts(topic_counts_map, args.lowthreshold, args.highthreshold,
+                                                args.pertopicvalidation)
     audit_level = "Per-topic" if args.pertopicvalidation else "Aggregate"
-    print(f'{audit_level} audit counting pass threshold: {args.threshold}, passed: {is_pass}')
+    print(f'{audit_level} audit counting pass low threshold: {args.lowthreshold}, high threshold: '
+          f'{args.highthreshold}, passed: {is_pass}')
     return is_pass
 
 
