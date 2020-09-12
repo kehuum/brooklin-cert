@@ -111,11 +111,13 @@ def run_single_producer(bootstrap_server, topic, num_messages, message_size, use
     if rate_limit_per_sec:
         producer_send = rate_limit(max_limit=rate_limit_per_sec, seconds=1)(producer_send)
 
-    for i in range(num_messages):
+    for i in range(1, num_messages + 1):
         message = generate_bytes(message_size)
         producer_send(topic=topic, value=message)
         if i > 0 and i % 1000 == 0:
             print(f"[{os.getpid()}] {get_current_time()} produced {i} messages")
+
+    producer.close()
 
 
 def run_producers(**kwargs):
