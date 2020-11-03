@@ -324,11 +324,9 @@ class BrooklinErrorInducingTests(KafkaAuditTestCaseBase):
     def test_stop_leader_brooklin_host(self):
         self.doRunTest(stop_start_brooklin_host(self.testName, True))
 
-    @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_random_brooklin_host(self):
         self.doRunTest(pause_resume_brooklin_host(self.testName, False))
 
-    @unittest.skip("Postponed until ZK session expiry fixes are made")
     def test_pause_resume_leader_brooklin_host(self):
         self.doRunTest(pause_resume_brooklin_host(self.testName, True))
 
