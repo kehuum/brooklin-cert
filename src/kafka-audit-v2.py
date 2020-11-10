@@ -29,10 +29,10 @@ def parse_args():
     parser.add_argument('--topics', type=csv, default=[], help='CSV of topics')
     parser.add_argument('--output', help='Path to store logs and results')
     parser.add_argument('--topicsfile', help='Path to input topics file, with a single topic on each line')
-    parser.add_argument('--lowthreshold', '--lt', type=int, help='Percentage low threshold at which to fail audit',
-                        default=1)
-    parser.add_argument('--highthreshold', '--ht', type=int, help='Percentage high threshold at which to fail audit',
-                        default=3)
+    parser.add_argument('--lowthreshold', '--lt', type=float, help='Percentage low threshold at which to fail audit',
+                        default=1.0)
+    parser.add_argument('--highthreshold', '--ht', type=float, help='Percentage high threshold at which to fail audit',
+                        default=3.0)
     parser.add_argument('--pertopicvalidation', action='store_true')
 
     required_arguments_group = parser.add_argument_group('required arguments')
@@ -136,8 +136,8 @@ def print_summary_table(topic_counts):
 
 
 def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshold, per_topic_validation):
-    total_prod_lva1 = 0
-    total_prod_lor1 = 0
+    total_prod_lva1 = 0.0
+    total_prod_lor1 = 0.0
     lva1_topic_missing = 0
     lor1_topic_missing = 0
     topics_outside_threshold = 0
@@ -167,12 +167,12 @@ def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshol
             total_prod_lor1 += lor1count
 
             # Calculate whether the topic's counts are within the threshold
-            topic_value = lor1count / max(lva1count, 1) * 100
-            outside_threshold = topic_value < 100 - low_threshold or topic_value > 100 + high_threshold
+            topic_value = lor1count / max(lva1count, 1.0) * 100.0
+            outside_threshold = topic_value < 100.0 - low_threshold or topic_value > 100.0 + high_threshold
             if outside_threshold:
                 topics_outside_threshold += 1
 
-    value = total_prod_lor1 / max(total_prod_lva1, 1) * 100
+    value = total_prod_lor1 / max(total_prod_lva1, 1.0) * 100.0
     print(f'total_prod_lor1: {total_prod_lor1}, total_prod_lva1: {total_prod_lva1}, ratio: {value} %')
     if lva1_topic_missing or lor1_topic_missing:
         log.warning(f'Topic missing count: lva1: {lva1_topic_missing}, lor1: {lor1_topic_missing}')
@@ -180,7 +180,7 @@ def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshol
         log.warning(f'Some topics counts are outside the allowed low threshold ({low_threshold}) or high threshold '
                     f'({high_threshold}): {topics_outside_threshold}')
 
-    aggregate_within_threshold = 100 - low_threshold <= value < 100 + high_threshold
+    aggregate_within_threshold = 100.0 - low_threshold <= value < 100.0 + high_threshold
     if per_topic_validation:
         log.info(f'Topics outside threshold: {topics_outside_threshold}, aggregate within threshold: '
                  f'{aggregate_within_threshold}')
