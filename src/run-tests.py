@@ -99,6 +99,52 @@ class BasicTests(KafkaAuditTestCaseBase):
 
         self.doRunTest(runner)
 
+    def test_update_max_tasks(self):
+        sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
+
+        datastream_name = 'test_update_max_tasks'
+        create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL),
+                             CreateDatastream(name=datastream_name,
+                                              datastream_config=DatastreamConfigChoice.EXPERIMENT))
+
+        sleep_before_update = Sleep(secs=60 * 10)
+
+        metadata_max_tasks_control = f'maxTasks:{DatastreamConfigChoice.CONTROL.value.num_tasks + 10}'
+        metadata_max_tasks_candidate = f'maxTasks:{DatastreamConfigChoice.EXPERIMENT.value.num_tasks + 10}'
+
+        update_datastream = (UpdateDatastream(whitelist=None,
+                                              metadata=[metadata_max_tasks_control], name=datastream_name,
+                                              cluster=BrooklinClusterChoice.CONTROL),
+                             UpdateDatastream(whitelist=None,
+                                              metadata=[metadata_max_tasks_candidate], name=datastream_name,
+                                              cluster=BrooklinClusterChoice.EXPERIMENT))
+
+        sleep_after_update = Sleep(secs=60 * 10)
+
+        sleep_until_test_end = SleepUntilNthMinute(nth_minute=0)
+
+        ekg_analysis = RunEkgAnalysis(starttime_getter=create_datastream[0].end_time,
+                                      endtime_getter=sleep_until_test_end.end_time)
+
+        kafka_audit = (AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[0].end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.VOYAGER),
+                       AddDeferredKafkaAuditInquiry(test_name=self.testName,
+                                                    starttime_getter=create_datastream[1].end_time,
+                                                    endtime_getter=sleep_until_test_end.end_time,
+                                                    topics_file_choice=KafkaTopicFileChoice.EXPERIMENT_VOYAGER))
+
+        runner = TestRunnerBuilder(test_name=datastream_name) \
+            .add_sequential(sleep_until_test_start) \
+            .add_parallel(*create_datastream) \
+            .add_sequential(sleep_before_update) \
+            .add_parallel(*update_datastream) \
+            .add_sequential(sleep_after_update, sleep_until_test_end, ekg_analysis, *kafka_audit) \
+            .build()
+
+        self.doRunTest(runner)
+
     def test_update_datastream_whitelist(self):
         # The final whitelist in this test will consist of voyager topics and seas topics. The whitelist update will
         # add the seas topics. On the other hand, the voyager topics should already exist on the destination Kafka
