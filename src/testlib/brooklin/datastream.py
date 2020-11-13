@@ -51,7 +51,7 @@ DatastreamCreationInfo = NamedTuple('DatastreamCreationInfo',
 class DatastreamConfigChoice(Enum):
     CONTROL = DatastreamCreationInfo(cluster=BrooklinClusterChoice.CONTROL,
                                      num_tasks=120,
-                                     topic_create=True,
+                                     topic_create=False,
                                      identity=False,
                                      passthrough=False,
                                      partition_managed=False,
@@ -59,7 +59,7 @@ class DatastreamConfigChoice(Enum):
 
     EXPERIMENT = DatastreamCreationInfo(cluster=BrooklinClusterChoice.EXPERIMENT,
                                         num_tasks=120,
-                                        topic_create=True,
+                                        topic_create=False,
                                         identity=False,
                                         passthrough=False,
                                         partition_managed=True,
