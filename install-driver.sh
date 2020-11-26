@@ -8,6 +8,12 @@ DEPENDECIES_TARBALL="${DEPENDENCIES_DIR}${TARBALL_EXT}"
 SCRIPTS_TARBALL="brooklin-certification-*$TARBALL_EXT"
 GEN_CERT_SCRIPT="gen-cert.sh"
 CA_BUNDLE_FILE="ca-bundle.crt"
+# Intentionally using a generic version (e.g. 3.7) instead of a specific version (e.g. 3.7.7)
+# since the generic versions are symlinked to the latest specific version on LinkedIn machines
+PYTHON_VERSION="3.7"
+PYTHON_BIN_DIR="/export/apps/python/$PYTHON_VERSION/bin"
+PYTHON_LIB_DIR="/export/apps/python/$PYTHON_VERSION/lib"
+PYTHON="$PYTHON_BIN_DIR/python3"
 
 CLEAN=0
 VERBOSE=0
@@ -65,6 +71,10 @@ done
 SCRIPTS_TARBALL=$(find . -name "$SCRIPTS_TARBALL" -type f)
 SCRIPTS_DIR=${SCRIPTS_TARBALL%$TARBALL_EXT}
 
+echo "Ensuring pip ..."
+redirect_output $PYTHON $PYTHON_LIB_DIR/python$PYTHON_VERSION/ensurepip --user
+exit_on_failure "Ensuring pip failed"
+
 if [[ $CLEAN == 0 ]]; then
   echo "Extracting scripts tarball ..."
   redirect_output tar -zxvf "$SCRIPTS_TARBALL"
@@ -79,11 +89,11 @@ if [[ $CLEAN == 0 ]]; then
   exit_on_failure "Extracting dependencies tarball failed"
 
   echo "Installing dependencies ..."
-  redirect_output /export/apps/python/3.7/bin/python3 -m pip install --user -r $DEPENDENCIES_DIR/requirements.txt --no-index --find-links $DEPENDENCIES_DIR
+  redirect_output $PYTHON -m pip install --user -r $DEPENDENCIES_DIR/requirements.txt --no-index --find-links $DEPENDENCIES_DIR
   exit_on_failure "Installing dependencies failed"
 else
   echo "Uninstalling dependencies ..."
-  redirect_output /export/apps/python/3.7/bin/python3 -m pip uninstall -y -r dependencies/requirements.txt
+  redirect_output $PYTHON -m pip uninstall -y -r dependencies/requirements.txt
   exit_on_failure "Uninstalling dependencies failed"
 
   echo "Deleting scripts and tarballs ..."
