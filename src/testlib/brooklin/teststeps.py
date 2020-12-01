@@ -20,8 +20,8 @@ PKCS12_SSL_CERTFILE = 'identity.p12'
 class CreateDatastream(RunPythonCommand):
     """Test step for creating a datastream"""
 
-    def __init__(self, datastream_config: DatastreamConfigChoice, name='basic-mirroring-datastream',
-                 offset_reset=None, cert=PKCS12_SSL_CERTFILE):
+    def __init__(self, datastream_config: DatastreamConfigChoice, name, offset_reset=None, enable_cleanup=False,
+                 cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not datastream_config:
             raise ValueError(f'Invalid datastream creation config: {datastream_config}')
@@ -42,6 +42,7 @@ class CreateDatastream(RunPythonCommand):
         self.whitelist = datastream_config.value.whitelist
         self.name = name
         self.offset_reset = offset_reset
+        self.enable_cleanup = enable_cleanup
         self.cert = cert
 
     @property
@@ -69,6 +70,17 @@ class CreateDatastream(RunPythonCommand):
 
         return command
 
+    @property
+    def cleanup_command(self):
+        command = ''
+        if self.enable_cleanup:
+            command = f'{DATASTREAM_CRUD_SCRIPT} delete ' \
+                      f'-n {self.name} ' \
+                      f'--cert {self.cert} ' \
+                      f'-f {self.cluster.fabric} -t {self.cluster.tag} --force'
+
+        return command
+
     def __str__(self):
         return f'{typename(self)}(datastream_config: {self.datastream_config})'
 
@@ -76,7 +88,7 @@ class CreateDatastream(RunPythonCommand):
 class RestartDatastream(RunPythonCommand):
     """Test step for restarting a datastream"""
 
-    def __init__(self, cluster=BrooklinClusterChoice.CONTROL, name='test-restart-datastream', cert=PKCS12_SSL_CERTFILE):
+    def __init__(self, name, cluster=BrooklinClusterChoice.CONTROL, cert=PKCS12_SSL_CERTFILE):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid cluster choice: {cluster}')

@@ -39,10 +39,10 @@ class PerformanceTest(unittest.TestCase):
 
         datastream_name = 'test_performance'
         create_datastream = (CreateDatastream(name=datastream_name, datastream_config=DatastreamConfigChoice.CONTROL,
-                                              offset_reset='earliest'),
+                                              offset_reset='earliest', enable_cleanup=True),
                              CreateDatastream(name=datastream_name,
                                               datastream_config=DatastreamConfigChoice.EXPERIMENT,
-                                              offset_reset='earliest'))
+                                              offset_reset='earliest', enable_cleanup=True))
 
         update_datastream = (UpdateDatastream(whitelist='^(^voyager-api.*$)|(^seas-.*$)',
                                               metadata=['system.reuseExistingDestination:false'], name=datastream_name,
