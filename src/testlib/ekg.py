@@ -73,8 +73,10 @@ class EkgClient(object):
     @retry(tries=10, delay=20, predicate=lambda result: result[1] is None)
     def _submit_request(self, request_body, ssl_cafile):
         try:
+            # TODO: We set verify=None for now to workaround the SSL certificate issue with EKG. Ticket to track the
+            #  fix: DATAPIPES-18779: Trust EKG's SSL CA on Brooklin certification clusters
             response = send_request(send_fn=lambda: requests.post(url=self.ANALYSIS_URL, json=request_body,
-                                                                  verify=ssl_cafile),
+                                                                  verify=None),
                                     error_message='Failed to submit analysis request to EKG server')
         except OperationFailedError as err:
             log.exception('Submitting analysis report to EKG failed')
@@ -87,7 +89,9 @@ class EkgClient(object):
         url = f'{self.ANALYSIS_URL}/{analysis_id}'
 
         log.info(f'Retrieving analysis report ID: {analysis_id}')
-        response = send_request(send_fn=lambda: requests.get(url, verify=ssl_cafile),
+        # TODO: We set verify=None for now to workaround the SSL certificate issue with EKG. Ticket to track the fix:
+        #  DATAPIPES-18779: Trust EKG's SSL CA on Brooklin certification clusters
+        response = send_request(send_fn=lambda: requests.get(url, verify=None),
                                 error_message=f'Failed to retrieve EKG analysis report with ID: {analysis_id}')
         response_json: dict = EkgClient._get_response_json(response)
         status = response_json.get('data', {}).get('attributes', {}).get('status')
