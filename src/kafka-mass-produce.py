@@ -41,6 +41,9 @@ def parse_args():
                                     '(default = ./data/pride-and-prejudice.txt)')
     optional_args.add_argument('--rl', type=int, dest='rate_limit_per_sec', required=False,
                                help='Max number of messages to send per second')
+    optional_args.add_argument('--ct', dest='compression_type', help="Compression type to use. Valid values are:"
+                                                                     " ‘gzip’, ‘snappy’, ‘lz4’. Defaults to None",
+                               default=None)
     optional_args.add_argument('-c', '--cert', dest='ssl_certfile', required=False, default=DEFAULT_SSL_CERTFILE,
                                help=f'SSL certificate file path (PEM format) (default = ./{DEFAULT_SSL_CERTFILE})')
     optional_args.add_argument('--ca', dest='ssl_cafile', required=False, default=DEFAULT_SSL_CAFILE,
@@ -93,7 +96,7 @@ def get_bytes_generator(use_random, use_alphanum, use_text, text_file):
 
 
 def run_single_producer(bootstrap_server, topic, num_messages, message_size, use_random, use_alphanum, use_text,
-                        text_file, rate_limit_per_sec, ssl_certfile, ssl_cafile):
+                        text_file, rate_limit_per_sec, compression_type, ssl_certfile, ssl_cafile):
 
     producer = KafkaProducer(bootstrap_servers=[bootstrap_server],
                              acks=0,
@@ -101,7 +104,8 @@ def run_single_producer(bootstrap_server, topic, num_messages, message_size, use
                              ssl_check_hostname=False,
                              ssl_cafile=ssl_cafile,
                              ssl_certfile=ssl_certfile,
-                             ssl_keyfile=ssl_certfile)
+                             ssl_keyfile=ssl_certfile,
+                             compression_type=compression_type)
 
     # choose function to generate bytes
     generate_bytes = get_bytes_generator(use_random, use_alphanum, use_text, text_file)
