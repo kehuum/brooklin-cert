@@ -1,3 +1,4 @@
+import math
 import uuid
 
 from abc import abstractmethod
@@ -80,6 +81,103 @@ class CreateDatastream(RunPythonCommand):
                       f'-f {self.cluster.fabric} -t {self.cluster.tag} --force'
 
         return command
+
+    def __str__(self):
+        return f'{typename(self)}(datastream_config: {self.datastream_config})'
+
+
+class CreateDatastreamWithElasticTaskAssignmentEnabled(RunPythonCommand):
+    """Test step for creating a datastream with elastic task assignment enabled. Elastic task assignment only
+    works for partition-managed datastreams. This test step will throw if partition-managed is not enabled."""
+
+    def __init__(self, datastream_config: DatastreamConfigChoice, name, partition_count_getter, partitions_per_task,
+                 fullness_factor_pct, offset_reset=None, enable_cleanup=False, cert=PKCS12_SSL_CERTFILE):
+        super().__init__()
+        if not datastream_config:
+            raise ValueError(f'Invalid datastream creation config: {datastream_config}')
+        if not name:
+            raise ValueError(f'Invalid name: {name}')
+        if not partition_count_getter:
+            raise ValueError(f'Invalid partition count getter: {partition_count_getter}')
+        if not partitions_per_task:
+            raise ValueError(f'Invalid partitions per task: {partitions_per_task}')
+        if not fullness_factor_pct > 0 and not fullness_factor_pct <= 100:
+            raise ValueError(f'Invalid fullness factor pct: {fullness_factor_pct}')
+        if not cert:
+            raise ValueError(f'Invalid cert: {cert}')
+        if offset_reset and offset_reset != 'earliest' and offset_reset != 'latest':
+            raise ValueError(f'Invalid offset reset: {offset_reset}')
+        if datastream_config.value.partition_managed is not True:
+            raise ValueError(f'Elastic task assignment can only be enabled if partition_managed is enabled')
+
+        self.datastream_config = datastream_config
+        self.cluster = datastream_config.value.cluster.value
+        self.num_tasks = datastream_config.value.num_tasks
+        self.topic_create = datastream_config.value.topic_create
+        self.identity = datastream_config.value.identity
+        self.passthrough = datastream_config.value.passthrough
+        self.partition_managed = datastream_config.value.partition_managed
+        self.whitelist = datastream_config.value.whitelist
+        self.name = name
+        self.partition_count_getter = partition_count_getter
+        self.partitions_per_task = partitions_per_task
+        self.fullness_factor_pct = fullness_factor_pct
+        self.offset_reset = offset_reset
+        self.enable_cleanup = enable_cleanup
+        self.cert = cert
+        self.expected_num_tasks = 0
+
+    @property
+    def main_command(self):
+        total_partitions = self.partition_count_getter()
+        allowed_partitions_per_task = 1
+        if (self.partitions_per_task * self.fullness_factor_pct) >= 100:
+            allowed_partitions_per_task = math.floor((self.partitions_per_task * self.fullness_factor_pct) / 100)
+        num_tasks_needed = math.ceil(total_partitions / allowed_partitions_per_task)
+        self.expected_num_tasks = num_tasks_needed
+        # Set min_tasks to be smaller than the number of tasks needed to force brooklin-server to recalculate and
+        # update the number of tasks needed. Also make sure maxTasks is high enough so that brooklin-server does not
+        # get capped by maxTasks when assessing how many tasks are needed.
+        min_tasks = num_tasks_needed - 1
+        max_tasks = num_tasks_needed + 100
+        command = f'{DATASTREAM_CRUD_SCRIPT} create ' \
+                  f'-n {self.name} ' \
+                  f'--whitelist "{self.whitelist}" ' \
+                  f'--numtasks {max_tasks} ' \
+                  f'--cert {self.cert} ' \
+                  f'-f {self.cluster.fabric} -t {self.cluster.tag} ' \
+                  f'--scd {KafkaClusterChoice.SOURCE.value.bootstrap_servers} ' \
+                  f'--dcd {KafkaClusterChoice.DESTINATION.value.bootstrap_servers} ' \
+                  f'--applications brooklin-service --metadata group.id:{uuid.uuid4()} ' \
+                  f'--metadata minTasks:{min_tasks} --metadata partitionsPerTask:{self.partitions_per_task} ' \
+                  f'--metadata partitionFullnessThresholdPct:{self.fullness_factor_pct} '
+
+        if self.offset_reset:
+            command += f' --offsetreset {self.offset_reset}'
+        if self.topic_create:
+            command += ' --topiccreate'
+        if self.identity:
+            command += ' --identity'
+        if self.passthrough:
+            command += ' --passthrough'
+        if self.partition_managed:
+            command += ' --partitionmanaged'
+
+        return command
+
+    @property
+    def cleanup_command(self):
+        command = ''
+        if self.enable_cleanup:
+            command = f'{DATASTREAM_CRUD_SCRIPT} delete ' \
+                      f'-n {self.name} ' \
+                      f'--cert {self.cert} ' \
+                      f'-f {self.cluster.fabric} -t {self.cluster.tag} --force'
+
+        return command
+
+    def get_expected_num_tasks(self):
+        return self.expected_num_tasks
 
     def __str__(self):
         return f'{typename(self)}(datastream_config: {self.datastream_config})'

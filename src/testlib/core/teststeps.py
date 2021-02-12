@@ -8,7 +8,7 @@ from typing import Union
 from kazoo.client import KazooClient
 from testlib import DEFAULT_SSL_CERTFILE, DEFAULT_SSL_CAFILE
 from testlib.brooklin.environment import BrooklinClusterChoice
-from testlib.core.utils import typename
+from testlib.core.utils import OperationFailedError, typename
 from testlib.lid import LidClient
 from testlib.likafka.environment import KafkaClusterChoice
 from testlib.range import get_random_host
@@ -214,6 +214,43 @@ class NukeZooKeeper(TestStep):
 
     def __str__(self):
         return f'{typename(self)}(cluster: {self.cluster})'
+
+
+class GetAndValidateNumTasksFromZooKeeper(TestStep):
+    """Gets the numTasks for a given datastream from ZooKeeper and validates that it matches the expected number of
+    tasks. numTasks is used by brooklin-service for elastic task assignment only."""
+
+    def __init__(self, cluster: BrooklinClusterChoice, datastream_name, expected_num_tasks_getter):
+        super().__init__()
+        if not datastream_name:
+            raise ValueError(f'Invalid datastream name: {datastream_name}')
+        if not expected_num_tasks_getter:
+            raise ValueError(f'Invalid expected num tasks getter: {expected_num_tasks_getter}')
+        self.cluster = cluster
+        self.datastream_name = datastream_name
+        self.expected_num_tasks_getter = expected_num_tasks_getter
+
+    def run_test(self):
+        expected_num_tasks = self.expected_num_tasks_getter()
+        zk_client = KazooClient(hosts=self.cluster.value.zk_dns)
+
+        try:
+            zk_client.start()
+            root_znode = self.cluster.value.zk_root_znode
+            num_tasks_znode = f'{root_znode}/dms/{self.datastream_name}/numTasks'
+            if not zk_client.exists(num_tasks_znode):
+                raise OperationFailedError(f'The numTasks znode in ZooKeeper does not exist!')
+
+            num_tasks, stat = zk_client.get(num_tasks_znode)
+            if expected_num_tasks != int(num_tasks.decode("utf-8")):
+                raise OperationFailedError(f'The numTasks in ZooKeeper: {int(num_tasks.decode("utf-8"))} does not '
+                                           f'match the expected numTasks: {expected_num_tasks}')
+        finally:
+            zk_client.stop()
+            zk_client.close()
+
+    def __str__(self):
+        return f'{typename(self)}(cluster: {self.cluster}, datastream: {self.datastream_name})'
 
 
 class GetRandomHostMixIn(object):

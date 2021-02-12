@@ -272,7 +272,7 @@ class CreateSourceTopicsOnDestination(TestStep):
 class CreateTopics(TestStep):
     """Test step for creating a list of topics in batches with optional delays"""
 
-    def __init__(self, topics, cluster: KafkaClusterChoice, batch_size=1, delay_seconds=120):
+    def __init__(self, topics, cluster: KafkaClusterChoice, batch_size=1, delay_seconds=120, partitions=8):
         super().__init__()
 
         if not topics:
@@ -283,18 +283,21 @@ class CreateTopics(TestStep):
             raise ValueError(f'Batch size must be >= 1, invalid batch size: {batch_size}')
         if delay_seconds < 0:
             raise ValueError(f'Delay in seconds must be >= 0, invalid delay: {delay_seconds}')
+        if partitions < 0:
+            raise ValueError(f'Partitions must be >= 0, invalid partitions: {partitions}')
 
         self.topics = topics
         self.cluster = cluster
         self.batch_size = batch_size
         self.delay_seconds = delay_seconds
+        self.partitions = partitions
 
     def run_test(self):
         for i in range(0, len(self.topics), self.batch_size):
             topic_batch = self.topics[i:i + self.batch_size]
 
             for topic in topic_batch:
-                CreateTopic(topic_name=topic, cluster=self.cluster).run()
+                CreateTopic(topic_name=topic, cluster=self.cluster, partitions=self.partitions).run()
 
             if self.delay_seconds > 0:
                 Sleep(secs=self.delay_seconds).run()
@@ -377,6 +380,41 @@ class DeleteTopics(TestStep):
 
     def __str__(self):
         return f'{typename(self)}(cluster: {self.cluster})'
+
+
+class GetTotalPartitionCountForSourceTopics(TestStep):
+    """Test step to obtain the sum of the partition count across all topics of interest in the source cluster"""
+
+    def __init__(self, topics_getter, ssl_certfile=DEFAULT_SSL_CERTFILE, ssl_cafile=DEFAULT_SSL_CAFILE):
+        super().__init__()
+        if not topics_getter:
+            raise ValueError(f'Invalid topic topics getter: {topics_getter}')
+        if not ssl_certfile:
+            raise ValueError(f'Cert file must be specified')
+        if not ssl_cafile:
+            raise ValueError(f'CA file must be specified')
+
+        self.topics_getter = topics_getter
+        self.ssl_certfile = ssl_certfile
+        self.ssl_cafile = ssl_cafile
+        self.partition_count = 0
+
+    def run_test(self):
+        consumer = KafkaConsumer(group_id=f'{uuid.uuid4()}',
+                                 auto_offset_reset='earliest',
+                                 bootstrap_servers=[KafkaClusterChoice.SOURCE.value.bootstrap_servers],
+                                 security_protocol="SSL",
+                                 ssl_check_hostname=False,
+                                 ssl_cafile=self.ssl_cafile,
+                                 ssl_certfile=self.ssl_certfile,
+                                 ssl_keyfile=self.ssl_certfile)
+
+        topics = self.topics_getter()
+        for topic in topics:
+            self.partition_count += len(consumer.partitions_for_topic(topic=topic))
+
+    def get_partition_count(self):
+        return self.partition_count
 
 
 class ConsumeFromDestinationTopic(TestStep):
