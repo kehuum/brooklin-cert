@@ -16,6 +16,7 @@ log = logging.getLogger()
 CREATE_TOPIC_COMMAND = 'create_topic'
 DELETE_TOPIC_COMMAND = 'delete_topic'
 LIST_TOPICS_COMMAND = 'list_topics'
+GET_PARTITION_COUNTS_COMMAND = 'get_partition_counts'
 
 
 class ArgumentParser(object):
@@ -48,6 +49,7 @@ class ArgumentParser(object):
         self._create_topic_command_parser()
         self._delete_topic_command_parser()
         self._list_topics_command_parser()
+        self._get_partition_counts_command_parser()
 
     def _add_subparser(self, name, help):
         return self.subcommands.add_parser(name, help=help, parents=[self.common_parser])
@@ -79,6 +81,16 @@ class ArgumentParser(object):
         delete_command_group.add_argument('--name', '-n', required=True, help='Topic name')
         delete_command.set_defaults(cmd=DELETE_TOPIC_COMMAND)
 
+    def _get_partition_counts_command_parser(self):
+        # All the arguments for the get partition counts sub-command
+        get_partition_counts_command = self._add_subparser(GET_PARTITION_COUNTS_COMMAND,
+                                                           help='Get partition counts for a topic regex')
+
+        # Add all the required arguments for the get partition counts sub-command
+        get_partition_counts_command_group = get_partition_counts_command.add_argument_group('required arguments')
+        get_partition_counts_command_group.add_argument('--tr', dest='topic_regex', required=True, help='Topic regex')
+        get_partition_counts_command.set_defaults(cmd=GET_PARTITION_COUNTS_COMMAND)
+
     def _list_topics_command_parser(self):
         # All the arguments for the list topic sub-command
         list_command = self._add_subparser(LIST_TOPICS_COMMAND, help='List Kafka topics in a cluster')
@@ -109,13 +121,20 @@ def list_topics(admin_client, args):
     print("\n".join(admin_client.list_topics()))
 
 
+def get_partition_counts(admin_client, args):
+    print(f'Topic regex passed: {args.topic_regex}')
+    partition_count = admin_client.get_partition_counts(args.topic_regex.encode().decode('unicode_escape'))
+    print(f'Partition counts for topic_regex \"{args.topic_regex}\" is {partition_count}')
+
+
 def main():
     args = ArgumentParser().parse_args()
 
     commands = {
         CREATE_TOPIC_COMMAND: create_topic,
         DELETE_TOPIC_COMMAND: delete_topic,
-        LIST_TOPICS_COMMAND: list_topics
+        LIST_TOPICS_COMMAND: list_topics,
+        GET_PARTITION_COUNTS_COMMAND: get_partition_counts
     }
 
     admin_client = AdminClient(args.bootstrap_servers, args.ssl_certfile)
