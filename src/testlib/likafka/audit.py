@@ -178,7 +178,7 @@ class RunKafkaAudit(RunPythonCommand):
 
         log.info(f'Original start time: {self.starttime_getter() * 1000}, original end time: '
                  f'{self.endtime_getter() * 1000}. Rounded start time: {startms}, rounded end time: {endms}.')
-        audit_command = 'kafka-audit-v2.py ' \
+        audit_command = 'kafka-audit-v3.py ' \
                         f'--topicsfile {self.topics_file_choice.value} ' \
                         f'--startms {startms} ' \
                         f'--endms {endms}'

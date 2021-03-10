@@ -15,12 +15,15 @@ from testlib.core.utils import csv, retry
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger()
 
-BASE_URL = 'http://kafka-auditing-reporter.corp-lca1.atd.corp.linkedin.com:8332' \
-           '/kafka-auditing-reporter/v2/api/completeness'
+BASE_URL = 'http://pipeline-completeness-monitor-cert.prod.linkedin.com' \
+           '/pipeline-completeness-monitor/api/'
 
-KAFKA_LVA1_CERT_KEY = 'kafka-lva1-cert'
-KAFKA_LOR1_CERT_KEY = 'kafka-brooklin-cert'
-TOTALS_PER_TIER = 'totalsPerTier'
+KAFKA_LVA1_CERT_KEY = 'lva1-cert'
+KAFKA_LOR1_CERT_KEY = 'lor1-brooklin-cert'
+TIER_COUTS_KEY = 'tierCounts'
+TOTAL_COUNT_KEY = "totalCount"
+BMM_ALERT_NAME = "bmm-release-cert"
+STREAM_NAMES_KEY = "streamNames"
 
 
 def parse_args():
@@ -59,7 +62,8 @@ def get_topic_list_from_file(topics_file):
 
 
 def get_audit_counts(topic, start_ms, end_ms):
-    counts_api = f'/counts?topic={topic}&start={start_ms}&end={end_ms}&version=v2&pipeline=brooklin-cert'
+    counts_api = f'report/counts?alertName={BMM_ALERT_NAME}&streamName={topic}' \
+        f'&beginTimestamp={start_ms}&endTimestamp={end_ms}'
     url = BASE_URL + counts_api
     log.debug(f'Querying counts for topic {topic} with URL: "{url}"')
     # Send the request with a connect timeout of 10 seconds and read timeout of 10 seconds to prevent waiting too
@@ -72,7 +76,7 @@ def get_audit_counts(topic, start_ms, end_ms):
 
 
 def is_cert_tier(topic_counts):
-    return 'cert' in ",".join(topic_counts[TOTALS_PER_TIER].keys())
+    return 'cert' in ",".join(topic_counts[TIER_COUTS_KEY].keys())
 
 
 def process(topic, start_ms, end_ms):
@@ -82,7 +86,7 @@ def process(topic, start_ms, end_ms):
         log.exception('Unable to get audit counts')
         return False
     else:
-        return (topic, topic_counts) if is_cert_tier(topic_counts) else False
+        return (topic, topic_counts)
 
 
 def find_cert_tier_counts(topics, start_ms, end_ms):
@@ -96,10 +100,10 @@ def find_cert_tier_counts(topics, start_ms, end_ms):
 
 
 def get_all_topics():
-    topics_api = '/topics'
+    topics_api = f'alerts/{BMM_ALERT_NAME}'
     url = BASE_URL + topics_api
     r = requests.get(url)
-    return r.json()
+    return r.json()[STREAM_NAMES_KEY]
 
 
 def print_summary_table(topic_counts):
@@ -109,18 +113,16 @@ def print_summary_table(topic_counts):
     header = format_str.replace(': >3.2f', '').format('Topic', KAFKA_LVA1_CERT_KEY, KAFKA_LOR1_CERT_KEY,
                                                       'CountDifference', 'Complete')
     print('\n')
-    print(topic_counts)
-    print('\n')
     print(header)
     print("=" * len(header))
     for topic in topic_counts:
         try:
-            lva1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LVA1_CERT_KEY]
+            lva1count = topic_counts[topic][TIER_COUTS_KEY][0][TOTAL_COUNT_KEY]
         except:
             log.error(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             continue
         try:
-            lor1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LOR1_CERT_KEY]
+            lor1count = topic_counts[topic][TIER_COUTS_KEY][1][TOTAL_COUNT_KEY]
         except:
             log.error(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             continue
@@ -148,14 +150,14 @@ def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshol
         skip_count = False
 
         try:
-            lva1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LVA1_CERT_KEY]
+            lva1count = topic_counts[topic][TIER_COUTS_KEY][0][TOTAL_COUNT_KEY]
         except:
             log.debug(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             lva1_topic_missing = lva1_topic_missing + 1
             skip_count = True
 
         try:
-            lor1count = topic_counts[topic][TOTALS_PER_TIER][KAFKA_LOR1_CERT_KEY]
+            lor1count = topic_counts[topic][TIER_COUTS_KEY][1][TOTAL_COUNT_KEY]
         except:
             log.debug(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             lor1_topic_missing = lor1_topic_missing + 1
