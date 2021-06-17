@@ -11,6 +11,10 @@ from testlib.likafka.environment import KafkaClusterChoice
 from testlib.likafka.teststeps import KillRandomKafkaHost, StartKafkaHost, StopRandomKafkaHost, \
     PerformKafkaPreferredLeaderElection
 
+# Kafka team switched to ISR based restarts of Kafka clusters. With this new methodology, they can control the
+# concurrency param without us providing overrides, so using default host concurrency.
+default_kafka_cluster_restart_host_concurrency = None
+
 
 def apply_revert_kafka_broker(test_name, kafka_cluster: KafkaClusterChoice,
                               apply_step_type: Type[Union[KillRandomKafkaHost, StopRandomKafkaHost]]) -> TestRunner:
@@ -95,7 +99,7 @@ def perform_kafka_ple(test_name, kafka_cluster: KafkaClusterChoice) -> TestRunne
         .build()
 
 
-def restart_kafka_cluster(test_name, kafka_cluster: KafkaClusterChoice, host_concurrency) -> TestRunner:
+def restart_kafka_cluster(test_name, kafka_cluster: KafkaClusterChoice) -> TestRunner:
     sleep_until_test_start = SleepUntilNthMinute(nth_minute=7)
 
     create_datastream = (CreateDatastream(name=test_name, datastream_config=DatastreamConfigChoice.CONTROL),
@@ -103,7 +107,7 @@ def restart_kafka_cluster(test_name, kafka_cluster: KafkaClusterChoice, host_con
 
     sleep_before_cluster_restart = Sleep(secs=60 * 10)
 
-    restart_kafka = RestartCluster(cluster=kafka_cluster, host_concurrency=host_concurrency)
+    restart_kafka = RestartCluster(cluster=kafka_cluster, host_concurrency=default_kafka_cluster_restart_host_concurrency)
 
     sleep_after_cluster_restart = Sleep(secs=60 * 10)
 

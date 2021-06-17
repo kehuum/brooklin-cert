@@ -165,7 +165,7 @@ class RestartCluster(TestStep):
         super().__init__()
         if not cluster:
             raise ValueError(f'Invalid Kafka/Brooklin cluster provided: {cluster}')
-        if not 0 < host_concurrency <= 100:
+        if host_concurrency and not 0 < host_concurrency <= 100:
             raise ValueError(f'Invalid host concurrency passed: {host_concurrency}. Should be a percentage')
         if not ssl_certfile:
             raise ValueError(f'The SSL certificate path must be provided')

@@ -119,7 +119,11 @@ class LidClient(object):
 
     @staticmethod
     def _get_restart_request_body(request_id, product, fabric, product_tag, host_concurrency):
-        return dict(product=f'urn:li:multiProduct:{product}', createdBy=f'urn:li:fabric:{fabric}',
-                    fabric=f'urn:li:fabric:{fabric}', productTag=product_tag, id=request_id,
-                    action={"com.linkedin.deployment.ControlAction": dict(type="RESTART")},
-                    options=dict(host_concurrency=host_concurrency / 100))
+        request_body = dict(product=f'urn:li:multiProduct:{product}', createdBy=f'urn:li:fabric:{fabric}',
+                            fabric=f'urn:li:fabric:{fabric}', productTag=product_tag, id=request_id,
+                            action={"com.linkedin.deployment.ControlAction": dict(type="RESTART")},
+                            options=dict())
+        if host_concurrency:
+            request_body["options"]["host_concurrency"] = host_concurrency / 100
+
+        return request_body
