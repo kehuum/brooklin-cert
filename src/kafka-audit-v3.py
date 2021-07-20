@@ -20,7 +20,7 @@ BASE_URL = 'http://pipeline-completeness-monitor-cert.prod.linkedin.com' \
 
 KAFKA_LVA1_CERT_KEY = 'lva1-cert'
 KAFKA_LOR1_CERT_KEY = 'lor1-brooklin-cert'
-TIER_COUTS_KEY = 'tierCounts'
+TIER_COUNTS_KEY = 'tierCounts'
 TOTAL_COUNT_KEY = "totalCount"
 BMM_ALERT_NAME = "bmm-release-cert"
 STREAM_NAMES_KEY = "streamNames"
@@ -76,7 +76,7 @@ def get_audit_counts(topic, start_ms, end_ms):
 
 
 def is_cert_tier(topic_counts):
-    return 'cert' in ",".join(topic_counts[TIER_COUTS_KEY].keys())
+    return 'cert' in ",".join(topic_counts[TIER_COUNTS_KEY].keys())
 
 
 def process(topic, start_ms, end_ms):
@@ -117,12 +117,12 @@ def print_summary_table(topic_counts):
     print("=" * len(header))
     for topic in topic_counts:
         try:
-            lva1count = topic_counts[topic][TIER_COUTS_KEY][0][TOTAL_COUNT_KEY]
+            lva1count = topic_counts[topic][TIER_COUNTS_KEY][0][TOTAL_COUNT_KEY]
         except:
             log.error(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             continue
         try:
-            lor1count = topic_counts[topic][TIER_COUTS_KEY][1][TOTAL_COUNT_KEY]
+            lor1count = topic_counts[topic][TIER_COUNTS_KEY][1][TOTAL_COUNT_KEY]
         except:
             log.error(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             continue
@@ -150,14 +150,14 @@ def aggregate_and_verify_topic_counts(topic_counts, low_threshold, high_threshol
         skip_count = False
 
         try:
-            lva1count = topic_counts[topic][TIER_COUTS_KEY][0][TOTAL_COUNT_KEY]
+            lva1count = topic_counts[topic][TIER_COUNTS_KEY][0][TOTAL_COUNT_KEY]
         except:
             log.debug(f'Counts missing for {KAFKA_LVA1_CERT_KEY} tier for topic: {topic}')
             lva1_topic_missing = lva1_topic_missing + 1
             skip_count = True
 
         try:
-            lor1count = topic_counts[topic][TIER_COUTS_KEY][1][TOTAL_COUNT_KEY]
+            lor1count = topic_counts[topic][TIER_COUNTS_KEY][1][TOTAL_COUNT_KEY]
         except:
             log.debug(f'Counts missing for {KAFKA_LOR1_CERT_KEY} tier for topic: {topic}')
             lor1_topic_missing = lor1_topic_missing + 1

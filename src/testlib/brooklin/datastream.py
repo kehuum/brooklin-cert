@@ -45,7 +45,7 @@ class Datastream(object):
 DatastreamCreationInfo = NamedTuple('DatastreamCreationInfo',
                                     [('cluster', BrooklinClusterChoice), ('num_tasks', int), ('topic_create', bool),
                                      ('identity', bool), ('passthrough', bool), ('partition_managed', bool),
-                                     ('whitelist', str)])
+                                     ('whitelist', str), ('auditV3', bool)])
 
 
 class DatastreamConfigChoice(Enum):
@@ -55,6 +55,7 @@ class DatastreamConfigChoice(Enum):
                                      identity=False,
                                      passthrough=False,
                                      partition_managed=False,
+                                     auditV3=True,
                                      whitelist='^voyager-api.*')
 
     EXPERIMENT = DatastreamCreationInfo(cluster=BrooklinClusterChoice.EXPERIMENT,
@@ -63,4 +64,5 @@ class DatastreamConfigChoice(Enum):
                                         identity=False,
                                         passthrough=False,
                                         partition_managed=True,
+                                        auditV3=True,
                                         whitelist='^experiment-voyager-api.*')

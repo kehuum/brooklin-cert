@@ -41,6 +41,7 @@ class CreateDatastream(RunPythonCommand):
         self.passthrough = datastream_config.value.passthrough
         self.partition_managed = datastream_config.value.partition_managed
         self.whitelist = datastream_config.value.whitelist
+        self.auditV3 = datastream_config.value.auditV3
         self.name = name
         self.offset_reset = offset_reset
         self.enable_cleanup = enable_cleanup
@@ -68,6 +69,8 @@ class CreateDatastream(RunPythonCommand):
             command += ' --passthrough'
         if self.partition_managed:
             command += ' --partitionmanaged'
+        if self.auditV3:
+            command += f' --metadata system.source.enableKafkaAuditV3:"true" '
 
         return command
 
@@ -118,6 +121,7 @@ class CreateDatastreamWithElasticTaskAssignmentEnabled(RunPythonCommand):
         self.passthrough = datastream_config.value.passthrough
         self.partition_managed = datastream_config.value.partition_managed
         self.whitelist = datastream_config.value.whitelist
+        self.auditV3 = datastream_config.value.auditV3
         self.name = name
         self.partition_count_getter = partition_count_getter
         self.partitions_per_task = partitions_per_task
@@ -162,6 +166,8 @@ class CreateDatastreamWithElasticTaskAssignmentEnabled(RunPythonCommand):
             command += ' --passthrough'
         if self.partition_managed:
             command += ' --partitionmanaged'
+        if self.auditV3:
+            command += f' --metadata system.source.enableKafkaAuditV3:"true" '
 
         return command
 
