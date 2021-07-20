@@ -70,7 +70,7 @@ class CreateDatastream(RunPythonCommand):
         if self.partition_managed:
             command += ' --partitionmanaged'
         if self.auditV3:
-            command += f' --metadata system.source.enableKafkaAuditV3:"true" '
+            command += ' --metadata system.source.enableKafkaAuditV3:"true"'
 
         return command
 
@@ -167,7 +167,7 @@ class CreateDatastreamWithElasticTaskAssignmentEnabled(RunPythonCommand):
         if self.partition_managed:
             command += ' --partitionmanaged'
         if self.auditV3:
-            command += f' --metadata system.source.enableKafkaAuditV3:"true" '
+            command += ' --metadata system.source.enableKafkaAuditV3:"true"'
 
         return command
 
